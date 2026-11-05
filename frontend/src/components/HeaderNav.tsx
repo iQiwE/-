@@ -11,6 +11,7 @@ export function HeaderNav() {
   const [user, setUser] = useState<SessionUser | null>(null);
 
   useEffect(() => {
+<<<<<<< Updated upstream
     const cached = getSessionUser();
     setUser(cached);
 
@@ -29,12 +30,19 @@ export function HeaderNav() {
         })
         .catch(() => {});
     }
+=======
+    setUser(getSessionUser());
+>>>>>>> Stashed changes
   }, [pathname]);
 
   function handleLogout() {
     clearSession();
     setUser(null);
+<<<<<<< Updated upstream
     router.push('/catalog');
+=======
+    router.push('/login');
+>>>>>>> Stashed changes
   }
 
   return (
@@ -48,11 +56,17 @@ export function HeaderNav() {
             <Link href="/catalog" className="text-gray-600 hover:text-blue-600">
               Каталог
             </Link>
+<<<<<<< Updated upstream
             {user?.role === 'LANDLORD' && (
               <Link href="/landlord" className="text-gray-600 hover:text-blue-600">
                 Кабинет арендодателя
               </Link>
             )}
+=======
+            <Link href="/landlord" className="text-gray-600 hover:text-blue-600">
+              Кабинет арендодателя
+            </Link>
+>>>>>>> Stashed changes
           </nav>
         </div>
 
@@ -71,6 +85,7 @@ export function HeaderNav() {
               </button>
             </>
           ) : (
+<<<<<<< Updated upstream
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
@@ -85,9 +100,21 @@ export function HeaderNav() {
                 Регистрация
               </Link>
             </div>
+=======
+            <Link
+              href="/login"
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+            >
+              Войти
+            </Link>
+>>>>>>> Stashed changes
           )}
         </div>
       </div>
     </header>
   );
 }
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes

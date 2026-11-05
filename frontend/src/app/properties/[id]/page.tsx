@@ -4,7 +4,11 @@ import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { apiGet, apiRequest } from '@/lib/api/client';
+<<<<<<< Updated upstream
 import { getSessionUser, getToken, SessionUser } from '@/lib/auth';
+=======
+import { AuthSession, getSessionUser, getToken, saveSession } from '@/lib/auth';
+>>>>>>> Stashed changes
 import { formatAddress, formatPrice } from '@/lib/format';
 import { Property } from '@/types/property';
 
@@ -14,7 +18,10 @@ export default function PropertyDetailPage() {
   const id = Number(params.id);
 
   const [property, setProperty] = useState<Property | null>(null);
+<<<<<<< Updated upstream
   const [user, setUser] = useState<SessionUser | null>(null);
+=======
+>>>>>>> Stashed changes
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,13 +34,17 @@ export default function PropertyDetailPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
+<<<<<<< Updated upstream
     setUser(getSessionUser());
+=======
+>>>>>>> Stashed changes
     apiGet<Property>(`/properties/${id}`)
       .then(setProperty)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
 
+<<<<<<< Updated upstream
   const isOwner = Boolean(user && property && user.id === property.ownerId);
   const isLandlord = user?.role === 'LANDLORD';
 
@@ -58,6 +69,26 @@ export default function PropertyDetailPage() {
       }
       if (currentUser.role !== 'TENANT') {
         throw new Error('Подавать заявки на аренду могут только пользователи с ролью TENANT.');
+=======
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setSubmitError(null);
+    setSubmitResult(null);
+
+    try {
+      let token = getToken();
+      const user = getSessionUser();
+
+      if (!token || user?.role !== 'TENANT') {
+        const auth = await apiRequest<AuthSession>('POST', '/auth/login', {
+          email: 'tenant@example.com',
+          password: 'demo123',
+        });
+        saveSession(auth);
+        token = auth.token;
+        router.refresh();
+>>>>>>> Stashed changes
       }
 
       await apiRequest(
@@ -117,6 +148,7 @@ export default function PropertyDetailPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-xl bg-white p-6 shadow-sm">
+<<<<<<< Updated upstream
           <h2 className="text-lg font-semibold text-gray-900">Оставить заявку на аренду</h2>
 
           {!user && (
@@ -137,16 +169,25 @@ export default function PropertyDetailPage() {
               Подача заявок доступна только пользователям с ролью TENANT (арендатор).
             </div>
           )}
+=======
+          <h2 className="text-lg font-semibold text-gray-900">Подать заявку на аренду</h2>
+>>>>>>> Stashed changes
 
           <label className="flex flex-col gap-1 text-sm">
             Желаемая дата заселения
             <input
               type="date"
               required
+<<<<<<< Updated upstream
               disabled={isOwner || isLandlord}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               className="rounded-lg border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+=======
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2"
+>>>>>>> Stashed changes
             />
           </label>
 
@@ -157,10 +198,16 @@ export default function PropertyDetailPage() {
               min={1}
               max={60}
               required
+<<<<<<< Updated upstream
               disabled={isOwner || isLandlord}
               value={leaseMonths}
               onChange={(e) => setLeaseMonths(Number(e.target.value))}
               className="rounded-lg border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+=======
+              value={leaseMonths}
+              onChange={(e) => setLeaseMonths(Number(e.target.value))}
+              className="rounded-lg border border-gray-300 px-3 py-2"
+>>>>>>> Stashed changes
             />
           </label>
 
@@ -168,10 +215,16 @@ export default function PropertyDetailPage() {
             Сообщение арендодателю
             <textarea
               rows={3}
+<<<<<<< Updated upstream
               disabled={isOwner || isLandlord}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               className="rounded-lg border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+=======
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2"
+>>>>>>> Stashed changes
             />
           </label>
 
@@ -180,10 +233,17 @@ export default function PropertyDetailPage() {
 
           <button
             type="submit"
+<<<<<<< Updated upstream
             disabled={submitting || isOwner || isLandlord || property.status !== 'AVAILABLE'}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {submitting ? 'Отправка...' : 'Оставить заявку'}
+=======
+            disabled={submitting || property.status !== 'AVAILABLE'}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? 'Отправка...' : 'Отправить заявку'}
+>>>>>>> Stashed changes
           </button>
         </form>
       </div>

@@ -2,7 +2,11 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
+<<<<<<< Updated upstream
 import { CatalogFilter, CatalogSortBy } from '@/types/property';
+=======
+import { CatalogFilter } from '@/types/property';
+>>>>>>> Stashed changes
 
 const toNumber = (v: string | null): number | undefined => {
   if (v === null || v === '') return undefined;
@@ -24,7 +28,10 @@ export function useCatalogFilters() {
       district: searchParams.get('district') || undefined,
       minPrice: toNumber(searchParams.get('minPrice')),
       maxPrice: toNumber(searchParams.get('maxPrice')),
+<<<<<<< Updated upstream
       sortBy: (searchParams.get('sortBy') as CatalogSortBy) || 'newest',
+=======
+>>>>>>> Stashed changes
       page: toNumber(searchParams.get('page')) || 1,
     }),
     [searchParams],

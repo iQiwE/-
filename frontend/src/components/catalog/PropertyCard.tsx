@@ -35,7 +35,11 @@ function PropertyCardBase({ property }: Props) {
         </p>
 
         <p className="text-sm text-gray-500">
+<<<<<<< Updated upstream
           <span className="font-medium text-gray-700">{address.city}, {address.district}</span> · {formatAddress(address)}
+=======
+          <span className="font-medium text-gray-700">{address.district}</span> · {formatAddress(address)}
+>>>>>>> Stashed changes
         </p>
 
         <Link

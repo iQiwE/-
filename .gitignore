@@ -19,6 +19,7 @@ next-env.d.ts
 
 # Environment variables
 .env
+.env.local
 .env.*
 !.env.example
 
@@ -33,4 +34,3 @@ npm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
-

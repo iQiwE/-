@@ -1,5 +1,9 @@
 import { Type } from 'class-transformer';
+<<<<<<< Updated upstream
 import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, MaxLength, ValidateNested } from 'class-validator';
+=======
+import { IsInt, IsNotEmpty, IsOptional, IsPositive, IsString, MaxLength, ValidateNested } from 'class-validator';
+>>>>>>> Stashed changes
 
 export class AddressDto {
   @IsString() @IsNotEmpty() city!: string;
@@ -7,8 +11,11 @@ export class AddressDto {
   @IsString() @IsNotEmpty() street!: string;
   @IsString() @IsNotEmpty() building!: string;
   @IsOptional() @IsString() apartment?: string;
+<<<<<<< Updated upstream
   @IsOptional() @Type(() => Number) @IsNumber() lat?: number;
   @IsOptional() @Type(() => Number) @IsNumber() lng?: number;
+=======
+>>>>>>> Stashed changes
 }
 
 export class CreatePropertyDto {

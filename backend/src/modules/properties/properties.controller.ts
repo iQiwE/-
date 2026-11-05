@@ -51,6 +51,7 @@ export class PropertiesController {
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
     return this.service.remove(id, user.id);
   }
+<<<<<<< Updated upstream
 
   @Patch('properties/:id/activate')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -58,5 +59,7 @@ export class PropertiesController {
   activate(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
     return this.service.activate(id, user.id);
   }
+=======
+>>>>>>> Stashed changes
 }
 

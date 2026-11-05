@@ -10,6 +10,7 @@ export interface Property {
   monthlyPrice: number;
   status: PropertyStatus;
   type: { id: number; name: string };
+<<<<<<< Updated upstream
   address: {
     city: string;
     district: string;
@@ -19,6 +20,9 @@ export interface Property {
     lat: number;
     lng: number;
   };
+=======
+  address: { city: string; district: string; street: string; building: string; apartment: string | null };
+>>>>>>> Stashed changes
   createdAt: string;
 }
 
@@ -29,13 +33,19 @@ export interface Paginated<T> {
   limit: number;
 }
 
+<<<<<<< Updated upstream
 export type CatalogSortBy = 'newest' | 'price_asc' | 'price_desc' | 'area_desc';
 
+=======
+>>>>>>> Stashed changes
 export interface CatalogFilter {
   district?: string;
   minPrice?: number;
   maxPrice?: number;
+<<<<<<< Updated upstream
   sortBy?: CatalogSortBy;
+=======
+>>>>>>> Stashed changes
   page: number;
 }
 

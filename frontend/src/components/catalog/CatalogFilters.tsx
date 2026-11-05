@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
+<<<<<<< Updated upstream
 import { CatalogFilter, CatalogSortBy } from '@/types/property';
+=======
+import { CatalogFilter } from '@/types/property';
+>>>>>>> Stashed changes
 
 interface Props {
   filter: CatalogFilter;
@@ -43,7 +47,11 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
 
   return (
     <form
+<<<<<<< Updated upstream
       className="grid gap-4 rounded-xl bg-white p-4 shadow-sm sm:grid-cols-[1fr_1fr_1fr_1fr_auto] sm:items-end"
+=======
+      className="grid gap-4 rounded-xl bg-white p-4 shadow-sm sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end"
+>>>>>>> Stashed changes
       onSubmit={(e) => e.preventDefault()}
       aria-label="Фильтры каталога"
     >
@@ -64,12 +72,20 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
       </label>
 
       <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+<<<<<<< Updated upstream
         Цена от, ₸
+=======
+        Цена от, ₽
+>>>>>>> Stashed changes
         <input
           type="number"
           inputMode="numeric"
           min={0}
+<<<<<<< Updated upstream
           step={5000}
+=======
+          step={1000}
+>>>>>>> Stashed changes
           placeholder="0"
           className={inputCls}
           value={minPrice}
@@ -78,12 +94,20 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
       </label>
 
       <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+<<<<<<< Updated upstream
         Цена до, ₸
+=======
+        Цена до, ₽
+>>>>>>> Stashed changes
         <input
           type="number"
           inputMode="numeric"
           min={0}
+<<<<<<< Updated upstream
           step={5000}
+=======
+          step={1000}
+>>>>>>> Stashed changes
           placeholder="Без ограничений"
           className={`${inputCls} ${rangeInvalid ? 'border-red-500' : ''}`}
           value={maxPrice}
@@ -92,6 +116,7 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
         />
       </label>
 
+<<<<<<< Updated upstream
       <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
         Сортировка
         <select
@@ -106,6 +131,8 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
         </select>
       </label>
 
+=======
+>>>>>>> Stashed changes
       <button
         type="button"
         onClick={onReset}
@@ -115,7 +142,11 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
       </button>
 
       {rangeInvalid && (
+<<<<<<< Updated upstream
         <p className="text-sm text-red-600 sm:col-span-5" role="alert">
+=======
+        <p className="text-sm text-red-600 sm:col-span-4" role="alert">
+>>>>>>> Stashed changes
           Минимальная цена не может превышать максимальную.
         </p>
       )}
