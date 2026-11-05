@@ -4,6 +4,7 @@ build/
 *.tsbuildinfo
 oracle-data-snapshot.json
 .env
+.env.local
 .env.*
 !.env.example
 *.log
