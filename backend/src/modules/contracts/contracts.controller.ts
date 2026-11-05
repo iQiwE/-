@@ -13,14 +13,21 @@ export class ContractsController {
 
   @Get('contracts')
   async findMine(@CurrentUser() user: AuthUser) {
+<<<<<<< Updated upstream
     const whereClause =
       user.role === 'LANDLORD' ? 'c.landlord_id = :userId' : 'c.tenant_id = :userId';
+=======
+>>>>>>> Stashed changes
     const rows = await this.db.query<any>(
       `SELECT c.contract_id, c.application_id, c.property_id, c.tenant_id, c.landlord_id,
               c.start_date, c.end_date, c.monthly_amount, c.status, p.title AS property_title
          FROM contracts c
          JOIN properties p ON p.property_id = c.property_id
+<<<<<<< Updated upstream
         WHERE ${whereClause}`,
+=======
+        WHERE c.landlord_id = :userId OR c.tenant_id = :userId`,
+>>>>>>> Stashed changes
       { userId: user.id },
     );
     return rows.map((r) => ({
@@ -45,10 +52,14 @@ export class ContractsController {
     );
     const c = contracts[0];
     if (!c) throw new NotFoundException('Contract not found');
+<<<<<<< Updated upstream
     const isParticipant =
       (user.role === 'LANDLORD' && c.LANDLORD_ID === user.id) ||
       (user.role === 'TENANT' && c.TENANT_ID === user.id);
     if (!isParticipant) {
+=======
+    if (c.LANDLORD_ID !== user.id && c.TENANT_ID !== user.id) {
+>>>>>>> Stashed changes
       throw new ForbiddenException('Not a participant of this contract');
     }
 

@@ -7,10 +7,17 @@ import { UpdatePropertyDto } from './dto/update-property.dto';
 import { Paginated, Property, PropertyStatus } from './property.entity';
 
 const BASE_SELECT = `
+<<<<<<< Updated upstream
   SELECT p.property_id, p.landlord_id, p.title, p.description, p.rooms, p.area,
          p.monthly_price, p.status, p.created_at,
          t.type_id, t.type_name,
          a.city, a.district, a.street, a.building, a.apartment, a.lat, a.lng
+=======
+  SELECT p.property_id, p.owner_id, p.title, p.description, p.rooms, p.area,
+         p.monthly_price, p.status, p.created_at,
+         t.type_id, t.type_name,
+         a.city, a.district, a.street, a.building, a.apartment
+>>>>>>> Stashed changes
     FROM properties p
     JOIN property_types t ON t.type_id = p.type_id
     JOIN addresses a      ON a.address_id = p.address_id`;
@@ -53,6 +60,7 @@ export class PropertiesRepository {
 
     binds.offset = (filter.page - 1) * filter.limit;
     binds.limit = filter.limit;
+<<<<<<< Updated upstream
     if (filter.sortBy) binds.sortBy = filter.sortBy;
 
     const orderByMap: Record<string, string> = {
@@ -62,11 +70,17 @@ export class PropertiesRepository {
       area_desc: 'q.area DESC, q.created_at DESC',
     };
     const orderBy = orderByMap[filter.sortBy ?? 'newest'] ?? 'q.created_at DESC';
+=======
+>>>>>>> Stashed changes
 
     // COUNT(*) OVER() возвращает общее количество за один запрос
     const rows = await this.db.query<any>(
       `SELECT q.*, COUNT(*) OVER() AS total_count FROM (${BASE_SELECT} WHERE ${where.join(' AND ')}) q
+<<<<<<< Updated upstream
         ORDER BY ${orderBy}
+=======
+        ORDER BY q.created_at DESC
+>>>>>>> Stashed changes
        OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY`,
       binds,
     );
@@ -85,10 +99,17 @@ export class PropertiesRepository {
     return rows[0] ? mapRow(rows[0]) : null;
   }
 
+<<<<<<< Updated upstream
   async findByOwner(landlordId: number): Promise<Property[]> {
     const rows = await this.db.query<any>(
       `${BASE_SELECT} WHERE p.landlord_id = :landlordId ORDER BY p.created_at DESC`,
       { landlordId },
+=======
+  async findByOwner(ownerId: number): Promise<Property[]> {
+    const rows = await this.db.query<any>(
+      `${BASE_SELECT} WHERE p.owner_id = :ownerId ORDER BY p.created_at DESC`,
+      { ownerId },
+>>>>>>> Stashed changes
     );
     return rows.map(mapRow);
   }
@@ -106,8 +127,13 @@ export class PropertiesRepository {
   /** Создаёт адрес и объект в рамках переданной транзакции. */
   async create(ownerId: number, dto: CreatePropertyDto, tx: TxConnection): Promise<number> {
     const addr = await this.db.execute(
+<<<<<<< Updated upstream
       `INSERT INTO addresses (city, district, street, building, apartment, lat, lng)
        VALUES (:city, :district, :street, :building, :apartment, :lat, :lng)
+=======
+      `INSERT INTO addresses (city, district, street, building, apartment)
+       VALUES (:city, :district, :street, :building, :apartment)
+>>>>>>> Stashed changes
        RETURNING address_id INTO :id`,
       {
         city: dto.address.city,
@@ -115,8 +141,11 @@ export class PropertiesRepository {
         street: dto.address.street,
         building: dto.address.building,
         apartment: dto.address.apartment ?? null,
+<<<<<<< Updated upstream
         lat: dto.address.lat ?? 49.953,
         lng: dto.address.lng ?? 82.618,
+=======
+>>>>>>> Stashed changes
         id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       },
       tx,
@@ -124,11 +153,19 @@ export class PropertiesRepository {
     const addressId = (addr.outBinds as any).id[0];
 
     const prop = await this.db.execute(
+<<<<<<< Updated upstream
       `INSERT INTO properties (landlord_id, type_id, address_id, title, description, rooms, area, monthly_price, status, created_at)
        VALUES (:landlordId, :typeId, :addressId, :title, :description, :rooms, :area, :monthlyPrice, 'AVAILABLE', SYSTIMESTAMP)
        RETURNING property_id INTO :id`,
       {
         landlordId: ownerId,
+=======
+      `INSERT INTO properties (owner_id, type_id, address_id, title, description, rooms, area, monthly_price, status, created_at)
+       VALUES (:ownerId, :typeId, :addressId, :title, :description, :rooms, :area, :monthlyPrice, 'AVAILABLE', SYSTIMESTAMP)
+       RETURNING property_id INTO :id`,
+      {
+        ownerId,
+>>>>>>> Stashed changes
         typeId: dto.typeId,
         addressId,
         title: dto.title,
@@ -167,7 +204,11 @@ export class PropertiesRepository {
 function mapRow(r: any): Property {
   return {
     id: r.PROPERTY_ID,
+<<<<<<< Updated upstream
     ownerId: r.LANDLORD_ID ?? r.OWNER_ID,
+=======
+    ownerId: r.OWNER_ID,
+>>>>>>> Stashed changes
     title: r.TITLE,
     description: r.DESCRIPTION,
     rooms: r.ROOMS,
@@ -182,8 +223,11 @@ function mapRow(r: any): Property {
       street: r.STREET,
       building: r.BUILDING,
       apartment: r.APARTMENT,
+<<<<<<< Updated upstream
       lat: Number(r.LAT ?? 49.953),
       lng: Number(r.LNG ?? 82.618),
+=======
+>>>>>>> Stashed changes
     },
   };
 }

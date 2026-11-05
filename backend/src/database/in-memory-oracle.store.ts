@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import * as fs from 'fs';
 import * as path from 'path';
 import { Result } from 'oracledb';
@@ -41,10 +42,27 @@ export class InMemoryOracleStore {
     landlords: [
       {
         ID: 1,
+=======
+import { Result } from 'oracledb';
+
+/**
+ * In-memory эмулятор таблиц Oracle (USERS, PROPERTY_TYPES, ADDRESSES, PROPERTIES,
+ * RENTAL_APPLICATIONS, CONTRACTS, PAYMENTS) для автономного запуска и тестирования,
+ * когда сервер Oracle Database не запущен локально.
+ */
+export class InMemoryOracleStore {
+  private seq = { user: 2, type: 4, address: 4, property: 4, application: 0, contract: 0, payment: 0 };
+
+  private state = {
+    users: [
+      {
+        USER_ID: 1,
+>>>>>>> Stashed changes
         FULL_NAME: 'Иван Петров (Арендодатель)',
         EMAIL: 'landlord@example.com',
         PHONE: '+79001112233',
         PASSWORD_HASH: 'd3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791',
+<<<<<<< Updated upstream
       },
       {
         ID: 2,
@@ -57,12 +75,24 @@ export class InMemoryOracleStore {
     tenants: [
       {
         ID: 1,
+=======
+        ROLE: 'LANDLORD',
+      },
+      {
+        USER_ID: 2,
+>>>>>>> Stashed changes
         FULL_NAME: 'Анна Смирнова (Арендатор)',
         EMAIL: 'tenant@example.com',
         PHONE: '+79004445566',
         PASSWORD_HASH: 'd3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791',
+<<<<<<< Updated upstream
       },
     ] as TenantRecord[],
+=======
+        ROLE: 'TENANT',
+      },
+    ],
+>>>>>>> Stashed changes
     propertyTypes: [
       { TYPE_ID: 1, TYPE_NAME: 'Квартира' },
       { TYPE_ID: 2, TYPE_NAME: 'Студия' },
@@ -70,6 +100,7 @@ export class InMemoryOracleStore {
       { TYPE_ID: 4, TYPE_NAME: 'Лофт' },
     ],
     addresses: [
+<<<<<<< Updated upstream
       { ADDRESS_ID: 1, CITY: 'Усть-Каменогорск', DISTRICT: 'Ульбинский', STREET: 'пр-т Назарбаева', BUILDING: '42', APARTMENT: '15', LAT: 49.9565, LNG: 82.6119 },
       { ADDRESS_ID: 2, CITY: 'Усть-Каменогорск', DISTRICT: 'Октябрьский', STREET: 'наб. Славского', BUILDING: '24', APARTMENT: '58', LAT: 49.9482, LNG: 82.6154 },
       { ADDRESS_ID: 3, CITY: 'Усть-Каменогорск', DISTRICT: 'КШТ', STREET: 'пр-т Казыбек би', BUILDING: '11', APARTMENT: '32', LAT: 49.9268, LNG: 82.6485 },
@@ -84,10 +115,17 @@ export class InMemoryOracleStore {
       { ADDRESS_ID: 12, CITY: 'Усть-Каменогорск', DISTRICT: 'Октябрьский', STREET: 'ул. Кабанбай батыра', BUILDING: '114', APARTMENT: '60', LAT: 49.9510, LNG: 82.6335 },
       { ADDRESS_ID: 13, CITY: 'Усть-Каменогорск', DISTRICT: 'Защита', STREET: 'ул. Вострецова', BUILDING: '21', APARTMENT: '9', LAT: 49.9912, LNG: 82.5890 },
       { ADDRESS_ID: 14, CITY: 'Усть-Каменогорск', DISTRICT: 'Согра', STREET: 'ул. Согринская', BUILDING: '15', APARTMENT: '4', LAT: 49.9825, LNG: 82.6940 },
+=======
+      { ADDRESS_ID: 1, CITY: 'Москва', DISTRICT: 'Центральный', STREET: 'ул. Тверская', BUILDING: '12', APARTMENT: '45' },
+      { ADDRESS_ID: 2, CITY: 'Москва', DISTRICT: 'Пресненский', STREET: 'Пресненская наб.', BUILDING: '8с1', APARTMENT: '120' },
+      { ADDRESS_ID: 3, CITY: 'Москва', DISTRICT: 'Хамовники', STREET: 'ул. Остоженка', BUILDING: '25', APARTMENT: '14' },
+      { ADDRESS_ID: 4, CITY: 'Москва', DISTRICT: 'Академический', STREET: 'пр-т 60-летия Октября', BUILDING: '18', APARTMENT: '88' },
+>>>>>>> Stashed changes
     ],
     properties: [
       {
         PROPERTY_ID: 1,
+<<<<<<< Updated upstream
         LANDLORD_ID: 1,
         TYPE_ID: 1,
         ADDRESS_ID: 1,
@@ -96,11 +134,22 @@ export class InMemoryOracleStore {
         ROOMS: 2,
         AREA: 64,
         MONTHLY_PRICE: 210000,
+=======
+        OWNER_ID: 1,
+        TYPE_ID: 1,
+        ADDRESS_ID: 1,
+        TITLE: 'Видовая 2-комнатная квартира на Тверской',
+        DESCRIPTION: 'Просторная светлая квартира с дизайнерским ремонтом, панорамными окнами и полной комплектацией техникой Bosch.',
+        ROOMS: 2,
+        AREA: 64,
+        MONTHLY_PRICE: 115000,
+>>>>>>> Stashed changes
         STATUS: 'AVAILABLE',
         CREATED_AT: new Date('2026-10-20T10:00:00Z'),
       },
       {
         PROPERTY_ID: 2,
+<<<<<<< Updated upstream
         LANDLORD_ID: 1,
         TYPE_ID: 3,
         ADDRESS_ID: 2,
@@ -109,11 +158,22 @@ export class InMemoryOracleStore {
         ROOMS: 3,
         AREA: 92,
         MONTHLY_PRICE: 320000,
+=======
+        OWNER_ID: 1,
+        TYPE_ID: 3,
+        ADDRESS_ID: 2,
+        TITLE: 'Апартаменты в Москва-Сити с видом на реку',
+        DESCRIPTION: 'Современные апартаменты на 38 этаже, консьерж-сервис 24/7, подземный паркинг, система умный дом.',
+        ROOMS: 3,
+        AREA: 92,
+        MONTHLY_PRICE: 185000,
+>>>>>>> Stashed changes
         STATUS: 'AVAILABLE',
         CREATED_AT: new Date('2026-10-22T12:00:00Z'),
       },
       {
         PROPERTY_ID: 3,
+<<<<<<< Updated upstream
         LANDLORD_ID: 1,
         TYPE_ID: 2,
         ADDRESS_ID: 3,
@@ -122,11 +182,22 @@ export class InMemoryOracleStore {
         ROOMS: 1,
         AREA: 34,
         MONTHLY_PRICE: 140000,
+=======
+        OWNER_ID: 1,
+        TYPE_ID: 2,
+        ADDRESS_ID: 4,
+        TITLE: 'Уютная студия у метро Академическая',
+        DESCRIPTION: 'Тихий зелёный двор, 5 минут пешком до метро, новая мебель, рабочая зона для удалённой работы.',
+        ROOMS: 1,
+        AREA: 31,
+        MONTHLY_PRICE: 55000,
+>>>>>>> Stashed changes
         STATUS: 'AVAILABLE',
         CREATED_AT: new Date('2026-10-25T15:30:00Z'),
       },
       {
         PROPERTY_ID: 4,
+<<<<<<< Updated upstream
         LANDLORD_ID: 1,
         TYPE_ID: 4,
         ADDRESS_ID: 4,
@@ -268,12 +339,26 @@ export class InMemoryOracleStore {
         STATUS: 'AVAILABLE',
         CREATED_AT: new Date('2026-11-04T12:00:00Z'),
       },
+=======
+        OWNER_ID: 1,
+        TYPE_ID: 4,
+        ADDRESS_ID: 3,
+        TITLE: 'Двухуровневый лофт в Хамовниках',
+        DESCRIPTION: 'Кирпичные стены, потолки 4.2 м, собственная терраса, закрытая охраняемая территория.',
+        ROOMS: 2,
+        AREA: 78,
+        MONTHLY_PRICE: 145000,
+        STATUS: 'AVAILABLE',
+        CREATED_AT: new Date('2026-10-28T09:15:00Z'),
+      },
+>>>>>>> Stashed changes
     ],
     applications: [] as any[],
     contracts: [] as any[],
     payments: [] as any[],
   };
 
+<<<<<<< Updated upstream
   constructor() {
     this.loadOrMigrateSnapshot();
   }
@@ -381,11 +466,20 @@ export class InMemoryOracleStore {
       const res = await work();
       this.persistSnapshot();
       return res;
+=======
+  async transaction<T>(work: () => Promise<T>): Promise<T> {
+    const snapshot = JSON.stringify({ seq: this.seq, state: this.state });
+    try {
+      return await work();
+>>>>>>> Stashed changes
     } catch (err) {
       const restored = JSON.parse(snapshot);
       this.seq = restored.seq;
       this.state = restored.state;
+<<<<<<< Updated upstream
       this.persistSnapshot();
+=======
+>>>>>>> Stashed changes
       throw err;
     }
   }
@@ -393,6 +487,7 @@ export class InMemoryOracleStore {
   async query<T>(sql: string, binds: Record<string, any> = {}): Promise<T[]> {
     const norm = sql.replace(/\s+/g, ' ').trim().toUpperCase();
 
+<<<<<<< Updated upstream
     if (norm === 'SELECT * FROM LANDLORDS ORDER BY ID') {
       return [...this.state.landlords] as unknown as T[];
     }
@@ -406,6 +501,8 @@ export class InMemoryOracleStore {
       return [...this.state.applications] as unknown as T[];
     }
 
+=======
+>>>>>>> Stashed changes
     if (norm.includes('FROM PROPERTY_TYPES')) {
       return [...this.state.propertyTypes].sort((a, b) => a.TYPE_NAME.localeCompare(b.TYPE_NAME)) as unknown as T[];
     }
@@ -423,12 +520,18 @@ export class InMemoryOracleStore {
         .map((d) => ({ DISTRICT: d })) as unknown as T[];
     }
 
+<<<<<<< Updated upstream
     if (norm.includes('FROM LANDLORDS')) {
       let rows = [...this.state.landlords];
+=======
+    if (norm.includes('FROM USERS')) {
+      let rows = [...this.state.users];
+>>>>>>> Stashed changes
       if (binds.email !== undefined) {
         rows = rows.filter((u) => u.EMAIL.toUpperCase() === String(binds.email).toUpperCase());
       }
       if (binds.id !== undefined) {
+<<<<<<< Updated upstream
         rows = rows.filter((u) => u.ID === Number(binds.id));
       }
       return rows as unknown as T[];
@@ -441,6 +544,9 @@ export class InMemoryOracleStore {
       }
       if (binds.id !== undefined) {
         rows = rows.filter((u) => u.ID === Number(binds.id));
+=======
+        rows = rows.filter((u) => u.USER_ID === Number(binds.id));
+>>>>>>> Stashed changes
       }
       return rows as unknown as T[];
     }
@@ -457,13 +563,23 @@ export class InMemoryOracleStore {
         return joined as unknown as T[];
       }
 
+<<<<<<< Updated upstream
       if (norm.includes('WHERE P.LANDLORD_ID = :LANDLORDID')) {
         joined = joined
           .filter((r) => r.LANDLORD_ID === Number(binds.landlordId))
+=======
+      if (norm.includes('WHERE P.OWNER_ID = :OWNERID')) {
+        joined = joined
+          .filter((r) => r.OWNER_ID === Number(binds.ownerId))
+>>>>>>> Stashed changes
           .sort((a, b) => new Date(b.CREATED_AT).getTime() - new Date(a.CREATED_AT).getTime());
         return joined as unknown as T[];
       }
 
+<<<<<<< Updated upstream
+=======
+      // Каталог с фильтрами
+>>>>>>> Stashed changes
       joined = joined.filter((r) => r.STATUS === 'AVAILABLE');
       if (binds.district) {
         joined = joined.filter((r) => r.DISTRICT.toUpperCase() === String(binds.district).toUpperCase());
@@ -478,6 +594,7 @@ export class InMemoryOracleStore {
         joined = joined.filter((r) => r.TYPE_ID === Number(binds.typeId));
       }
 
+<<<<<<< Updated upstream
       if (binds.sortBy === 'price_asc') {
         joined.sort((a, b) => a.MONTHLY_PRICE - b.MONTHLY_PRICE);
       } else if (binds.sortBy === 'price_desc') {
@@ -490,6 +607,12 @@ export class InMemoryOracleStore {
       const total = joined.length;
       const offset = Number(binds.offset ?? 0);
       const limit = Number(binds.limit ?? 8);
+=======
+      joined.sort((a, b) => new Date(b.CREATED_AT).getTime() - new Date(a.CREATED_AT).getTime());
+      const total = joined.length;
+      const offset = Number(binds.offset ?? 0);
+      const limit = Number(binds.limit ?? 12);
+>>>>>>> Stashed changes
       return joined.slice(offset, offset + limit).map((r) => ({ ...r, TOTAL_COUNT: total })) as unknown as T[];
     }
 
@@ -506,20 +629,34 @@ export class InMemoryOracleStore {
     if (norm.includes('FROM RENTAL_APPLICATIONS RA')) {
       let joined = this.state.applications.map((ra) => {
         const p = this.state.properties.find((x) => x.PROPERTY_ID === ra.PROPERTY_ID)!;
+<<<<<<< Updated upstream
         const t = this.state.tenants.find((x) => x.ID === ra.TENANT_ID)!;
         return {
           ...ra,
           PROPERTY_TITLE: p?.TITLE ?? '',
           LANDLORD_ID: p?.LANDLORD_ID ?? 0,
           TENANT_NAME: t?.FULL_NAME ?? '',
+=======
+        const u = this.state.users.find((x) => x.USER_ID === ra.TENANT_ID)!;
+        return {
+          ...ra,
+          PROPERTY_TITLE: p?.TITLE ?? '',
+          OWNER_ID: p?.OWNER_ID ?? 0,
+          TENANT_NAME: u?.FULL_NAME ?? '',
+>>>>>>> Stashed changes
         };
       });
 
       if (norm.includes('WHERE RA.APPLICATION_ID = :ID')) {
         return joined.filter((r) => r.APPLICATION_ID === Number(binds.id)) as unknown as T[];
       }
+<<<<<<< Updated upstream
       if (norm.includes('WHERE P.LANDLORD_ID = :LANDLORDID')) {
         joined = joined.filter((r) => r.LANDLORD_ID === Number(binds.landlordId));
+=======
+      if (norm.includes('WHERE P.OWNER_ID = :LANDLORDID')) {
+        joined = joined.filter((r) => r.OWNER_ID === Number(binds.landlordId));
+>>>>>>> Stashed changes
         if (binds.status) joined = joined.filter((r) => r.STATUS === binds.status);
         return joined.sort((a, b) => new Date(b.CREATED_AT).getTime() - new Date(a.CREATED_AT).getTime()) as unknown as T[];
       }
@@ -535,11 +672,16 @@ export class InMemoryOracleStore {
         const p = this.state.properties.find((x) => x.PROPERTY_ID === c.PROPERTY_ID);
         return { ...c, PROPERTY_TITLE: p?.TITLE ?? '' };
       });
+<<<<<<< Updated upstream
       if (binds.landlordId !== undefined) {
         rows = rows.filter((c) => c.LANDLORD_ID === Number(binds.landlordId));
       }
       if (binds.tenantId !== undefined) {
         rows = rows.filter((c) => c.TENANT_ID === Number(binds.tenantId));
+=======
+      if (binds.userId !== undefined) {
+        rows = rows.filter((c) => c.LANDLORD_ID === Number(binds.userId) || c.TENANT_ID === Number(binds.userId));
+>>>>>>> Stashed changes
       }
       if (binds.id !== undefined) {
         rows = rows.filter((c) => c.CONTRACT_ID === Number(binds.id));
@@ -558,16 +700,25 @@ export class InMemoryOracleStore {
 
   async execute(sql: string, binds: Record<string, any> = {}): Promise<Result<unknown>> {
     const norm = sql.replace(/\s+/g, ' ').trim().toUpperCase();
+<<<<<<< Updated upstream
     let result: Result<unknown> = { rowsAffected: 0 };
 
     if (norm.startsWith('INSERT INTO LANDLORDS')) {
       const id = ++this.seq.landlord;
       this.state.landlords.push({
         ID: id,
+=======
+
+    if (norm.startsWith('INSERT INTO USERS')) {
+      const id = ++this.seq.user;
+      this.state.users.push({
+        USER_ID: id,
+>>>>>>> Stashed changes
         FULL_NAME: binds.fullName,
         EMAIL: binds.email,
         PHONE: binds.phone ?? null,
         PASSWORD_HASH: binds.passwordHash,
+<<<<<<< Updated upstream
       });
       result = { outBinds: { id: [id] }, rowsAffected: 1 };
     } else if (norm.startsWith('INSERT INTO TENANTS')) {
@@ -581,6 +732,14 @@ export class InMemoryOracleStore {
       });
       result = { outBinds: { id: [id] }, rowsAffected: 1 };
     } else if (norm.startsWith('INSERT INTO ADDRESSES')) {
+=======
+        ROLE: binds.role,
+      });
+      return { outBinds: { id: [id] }, rowsAffected: 1 };
+    }
+
+    if (norm.startsWith('INSERT INTO ADDRESSES')) {
+>>>>>>> Stashed changes
       const id = ++this.seq.address;
       this.state.addresses.push({
         ADDRESS_ID: id,
@@ -589,6 +748,7 @@ export class InMemoryOracleStore {
         STREET: binds.street,
         BUILDING: binds.building,
         APARTMENT: binds.apartment ?? null,
+<<<<<<< Updated upstream
         LAT: Number(binds.lat ?? 49.953),
         LNG: Number(binds.lng ?? 82.618),
       });
@@ -598,6 +758,17 @@ export class InMemoryOracleStore {
       this.state.properties.push({
         PROPERTY_ID: id,
         LANDLORD_ID: Number(binds.landlordId),
+=======
+      });
+      return { outBinds: { id: [id] }, rowsAffected: 1 };
+    }
+
+    if (norm.startsWith('INSERT INTO PROPERTIES')) {
+      const id = ++this.seq.property;
+      this.state.properties.push({
+        PROPERTY_ID: id,
+        OWNER_ID: Number(binds.ownerId),
+>>>>>>> Stashed changes
         TYPE_ID: Number(binds.typeId),
         ADDRESS_ID: Number(binds.addressId),
         TITLE: binds.title,
@@ -608,12 +779,25 @@ export class InMemoryOracleStore {
         STATUS: 'AVAILABLE',
         CREATED_AT: new Date(),
       });
+<<<<<<< Updated upstream
       result = { outBinds: { id: [id] }, rowsAffected: 1 };
     } else if (norm.startsWith('UPDATE PROPERTIES SET STATUS = :STATUS')) {
       const prop = this.state.properties.find((p) => p.PROPERTY_ID === Number(binds.id));
       if (prop) prop.STATUS = binds.status;
       result = { rowsAffected: prop ? 1 : 0 };
     } else if (norm.startsWith('UPDATE PROPERTIES SET')) {
+=======
+      return { outBinds: { id: [id] }, rowsAffected: 1 };
+    }
+
+    if (norm.startsWith('UPDATE PROPERTIES SET STATUS = :STATUS')) {
+      const prop = this.state.properties.find((p) => p.PROPERTY_ID === Number(binds.id));
+      if (prop) prop.STATUS = binds.status;
+      return { rowsAffected: prop ? 1 : 0 };
+    }
+
+    if (norm.startsWith('UPDATE PROPERTIES SET')) {
+>>>>>>> Stashed changes
       const prop = this.state.properties.find((p) => p.PROPERTY_ID === Number(binds.id));
       if (prop) {
         if (binds.title !== undefined) prop.TITLE = binds.title;
@@ -623,8 +807,15 @@ export class InMemoryOracleStore {
         if (binds.area !== undefined) prop.AREA = Number(binds.area);
         if (binds.monthlyPrice !== undefined) prop.MONTHLY_PRICE = Number(binds.monthlyPrice);
       }
+<<<<<<< Updated upstream
       result = { rowsAffected: prop ? 1 : 0 };
     } else if (norm.startsWith('INSERT INTO RENTAL_APPLICATIONS')) {
+=======
+      return { rowsAffected: prop ? 1 : 0 };
+    }
+
+    if (norm.startsWith('INSERT INTO RENTAL_APPLICATIONS')) {
+>>>>>>> Stashed changes
       const id = ++this.seq.application;
       this.state.applications.push({
         APPLICATION_ID: id,
@@ -636,8 +827,15 @@ export class InMemoryOracleStore {
         STATUS: 'PENDING',
         CREATED_AT: new Date(),
       });
+<<<<<<< Updated upstream
       result = { outBinds: { id: [id] }, rowsAffected: 1 };
     } else if (norm.startsWith("UPDATE RENTAL_APPLICATIONS SET STATUS = 'REJECTED'")) {
+=======
+      return { outBinds: { id: [id] }, rowsAffected: 1 };
+    }
+
+    if (norm.startsWith("UPDATE RENTAL_APPLICATIONS SET STATUS = 'REJECTED'")) {
+>>>>>>> Stashed changes
       let count = 0;
       for (const a of this.state.applications) {
         if (
@@ -649,12 +847,25 @@ export class InMemoryOracleStore {
           count++;
         }
       }
+<<<<<<< Updated upstream
       result = { rowsAffected: count };
     } else if (norm.startsWith('UPDATE RENTAL_APPLICATIONS SET STATUS = :STATUS')) {
       const app = this.state.applications.find((a) => a.APPLICATION_ID === Number(binds.id));
       if (app) app.STATUS = binds.status;
       result = { rowsAffected: app ? 1 : 0 };
     } else if (norm.startsWith('INSERT INTO CONTRACTS')) {
+=======
+      return { rowsAffected: count };
+    }
+
+    if (norm.startsWith('UPDATE RENTAL_APPLICATIONS SET STATUS = :STATUS')) {
+      const app = this.state.applications.find((a) => a.APPLICATION_ID === Number(binds.id));
+      if (app) app.STATUS = binds.status;
+      return { rowsAffected: app ? 1 : 0 };
+    }
+
+    if (norm.startsWith('INSERT INTO CONTRACTS')) {
+>>>>>>> Stashed changes
       const id = ++this.seq.contract;
       this.state.contracts.push({
         CONTRACT_ID: id,
@@ -667,18 +878,32 @@ export class InMemoryOracleStore {
         MONTHLY_AMOUNT: Number(binds.monthlyAmount),
         STATUS: 'ACTIVE',
       });
+<<<<<<< Updated upstream
       result = { outBinds: { id: [id] }, rowsAffected: 1 };
     } else if (norm.startsWith('UPDATE PAYMENTS')) {
+=======
+      return { outBinds: { id: [id] }, rowsAffected: 1 };
+    }
+
+    if (norm.startsWith('UPDATE PAYMENTS')) {
+>>>>>>> Stashed changes
       const pay = this.state.payments.find((p) => p.PAYMENT_ID === Number(binds.id));
       if (pay) {
         pay.STATUS = 'PAID';
         pay.PAID_AT = new Date();
       }
+<<<<<<< Updated upstream
       result = { rowsAffected: pay ? 1 : 0 };
     }
 
     this.persistSnapshot();
     return result;
+=======
+      return { rowsAffected: pay ? 1 : 0 };
+    }
+
+    return { rowsAffected: 0 };
+>>>>>>> Stashed changes
   }
 
   async executeMany(sql: string, binds: Record<string, any>[]): Promise<{ rowsAffected: number }> {
@@ -695,7 +920,10 @@ export class InMemoryOracleStore {
         });
       }
     }
+<<<<<<< Updated upstream
     this.persistSnapshot();
+=======
+>>>>>>> Stashed changes
     return { rowsAffected: binds.length };
   }
 }

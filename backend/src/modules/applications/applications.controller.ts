@@ -14,12 +14,20 @@ export class ApplicationsController {
   constructor(private readonly service: ApplicationsService) {}
 
   @Post('properties/:id/applications')
+<<<<<<< Updated upstream
+=======
+  @Roles('TENANT')
+>>>>>>> Stashed changes
   submit(
     @Param('id', ParseIntPipe) propertyId: number,
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateApplicationDto,
   ) {
+<<<<<<< Updated upstream
     return this.service.submit(propertyId, user, dto);
+=======
+    return this.service.submit(propertyId, user.id, dto);
+>>>>>>> Stashed changes
   }
 
   @Get('tenant/applications')

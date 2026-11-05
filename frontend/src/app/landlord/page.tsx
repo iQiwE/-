@@ -4,7 +4,11 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiGet, apiRequest } from '@/lib/api/client';
+<<<<<<< Updated upstream
 import { getSessionUser, getToken } from '@/lib/auth';
+=======
+import { AuthSession, getSessionUser, getToken, saveSession } from '@/lib/auth';
+>>>>>>> Stashed changes
 import { formatPrice } from '@/lib/format';
 import { Property } from '@/types/property';
 
@@ -19,6 +23,7 @@ interface ApplicationItem {
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
+<<<<<<< Updated upstream
 const LANDLORD_PAGE_SIZE = 5;
 
 export default function LandlordDashboardPage() {
@@ -37,10 +42,22 @@ export default function LandlordDashboardPage() {
   const [title, setTitle] = useState('');
   const [city, setCity] = useState('Усть-Каменогорск');
   const [district, setDistrict] = useState('Ульбинский');
+=======
+export default function LandlordDashboardPage() {
+  const router = useRouter();
+  const [token, setToken] = useState<string | null>(null);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [applications, setApplications] = useState<ApplicationItem[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const [title, setTitle] = useState('');
+  const [district, setDistrict] = useState('Центральный');
+>>>>>>> Stashed changes
   const [street, setStreet] = useState('');
   const [building, setBuilding] = useState('');
   const [rooms, setRooms] = useState(2);
   const [area, setArea] = useState(54);
+<<<<<<< Updated upstream
   const [monthlyPrice, setMonthlyPrice] = useState(180000);
 
   const loadData = useCallback(async (jwt: string) => {
@@ -54,11 +71,23 @@ export default function LandlordDashboardPage() {
     } catch (e: any) {
       setError(e.message ?? 'Ошибка загрузки данных');
     }
+=======
+  const [monthlyPrice, setMonthlyPrice] = useState(95000);
+
+  const loadData = useCallback(async (jwt: string) => {
+    const [props, apps] = await Promise.all([
+      apiGet<Property[]>('/landlord/properties', {}, undefined, jwt),
+      apiGet<ApplicationItem[]>('/landlord/applications', {}, undefined, jwt),
+    ]);
+    setProperties(props);
+    setApplications(apps);
+>>>>>>> Stashed changes
   }, []);
 
   useEffect(() => {
     const existingToken = getToken();
     const existingUser = getSessionUser();
+<<<<<<< Updated upstream
 
     if (!existingToken || !existingUser) {
       router.replace('/login');
@@ -124,10 +153,51 @@ export default function LandlordDashboardPage() {
     } catch (e: any) {
       setError(e.message ?? 'Не удалось создать объявление');
     }
+=======
+    if (existingToken && existingUser?.role === 'LANDLORD') {
+      setToken(existingToken);
+      loadData(existingToken);
+      return;
+    }
+
+    apiRequest<AuthSession>('POST', '/auth/login', {
+      email: 'landlord@example.com',
+      password: 'demo123',
+    }).then((res) => {
+      saveSession(res);
+      setToken(res.token);
+      loadData(res.token);
+      router.refresh();
+    });
+  }, [loadData, router]);
+
+  async function handleCreateProperty(e: FormEvent) {
+    e.preventDefault();
+    if (!token) return;
+    await apiRequest(
+      'POST',
+      '/properties',
+      {
+        title,
+        typeId: 1,
+        rooms: Number(rooms),
+        area: Number(area),
+        monthlyPrice: Number(monthlyPrice),
+        address: { city: 'Москва', district, street, building },
+      },
+      token,
+    );
+    setTitle('');
+    setStreet('');
+    setBuilding('');
+    setNotice('Объявление опубликовано.');
+    await loadData(token);
+>>>>>>> Stashed changes
   }
 
   async function handleApprove(id: number) {
     if (!token) return;
+<<<<<<< Updated upstream
     setError(null);
     try {
       const res = await apiRequest<{ contractId: number; paymentsCreated: number }>(
@@ -141,10 +211,21 @@ export default function LandlordDashboardPage() {
     } catch (e: any) {
       setError(e.message ?? 'Не удалось одобрить заявку');
     }
+=======
+    const res = await apiRequest<{ contractId: number; paymentsCreated: number }>(
+      'PATCH',
+      `/applications/${id}/approve`,
+      undefined,
+      token,
+    );
+    setNotice(`Заявка #${id} одобрена. Создан договор #${res.contractId} и платежей: ${res.paymentsCreated}.`);
+    await loadData(token);
+>>>>>>> Stashed changes
   }
 
   async function handleReject(id: number) {
     if (!token) return;
+<<<<<<< Updated upstream
     setError(null);
     try {
       await apiRequest('PATCH', `/applications/${id}/reject`, undefined, token);
@@ -195,6 +276,13 @@ export default function LandlordDashboardPage() {
   const totalPropPages = Math.max(1, Math.ceil(filteredAndSortedProperties.length / LANDLORD_PAGE_SIZE));
   const safePropPage = Math.min(propPage, totalPropPages);
 
+=======
+    await apiRequest('PATCH', `/applications/${id}/reject`, undefined, token);
+    setNotice(`Заявка #${id} отклонена.`);
+    await loadData(token);
+  }
+
+>>>>>>> Stashed changes
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-8">
       <header className="flex items-center justify-between">
@@ -205,7 +293,10 @@ export default function LandlordDashboardPage() {
       </header>
 
       {notice && <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-800">{notice}</div>}
+<<<<<<< Updated upstream
       {error && <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+=======
+>>>>>>> Stashed changes
 
       <section className="rounded-xl bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900">Входящие заявки на аренду</h2>
@@ -246,6 +337,7 @@ export default function LandlordDashboardPage() {
       </section>
 
       <section className="grid gap-6 md:grid-cols-[1fr_1.3fr]">
+<<<<<<< Updated upstream
         <form onSubmit={handleCreateProperty} className="flex flex-col gap-3.5 rounded-xl bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900">Добавить объявление</h2>
 
@@ -353,10 +445,75 @@ export default function LandlordDashboardPage() {
             type="submit"
             className="mt-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
           >
+=======
+        <form onSubmit={handleCreateProperty} className="flex flex-col gap-3 rounded-xl bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-900">Добавить объявление</h2>
+          <input
+            required
+            placeholder="Заголовок объявления"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="rounded-lg border px-3 py-2 text-sm"
+          />
+          <input
+            required
+            placeholder="Район"
+            value={district}
+            onChange={(e) => setDistrict(e.target.value)}
+            className="rounded-lg border px-3 py-2 text-sm"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              required
+              placeholder="Улица"
+              value={street}
+              onChange={(e) => setStreet(e.target.value)}
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
+            <input
+              required
+              placeholder="Дом"
+              value={building}
+              onChange={(e) => setBuilding(e.target.value)}
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <input
+              type="number"
+              min={1}
+              required
+              placeholder="Комнат"
+              value={rooms}
+              onChange={(e) => setRooms(Number(e.target.value))}
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
+            <input
+              type="number"
+              min={10}
+              required
+              placeholder="Площадь"
+              value={area}
+              onChange={(e) => setArea(Number(e.target.value))}
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
+            <input
+              type="number"
+              min={1000}
+              required
+              placeholder="Цена/мес"
+              value={monthlyPrice}
+              onChange={(e) => setMonthlyPrice(Number(e.target.value))}
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
+          </div>
+          <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">
+>>>>>>> Stashed changes
             Опубликовать
           </button>
         </form>
 
+<<<<<<< Updated upstream
         <div className="flex flex-col justify-between rounded-xl bg-white p-6 shadow-sm">
           <div>
             <div className="flex items-center justify-between">
@@ -531,6 +688,23 @@ export default function LandlordDashboardPage() {
               </button>
             </nav>
           )}
+=======
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-900">Мои объекты ({properties.length})</h2>
+          <div className="mt-3 divide-y text-sm">
+            {properties.map((p) => (
+              <div key={p.id} className="flex items-center justify-between py-2.5">
+                <div>
+                  <p className="font-medium text-gray-900">{p.title}</p>
+                  <p className="text-gray-500">
+                    {p.address.district} · {formatPrice(p.monthlyPrice)}
+                  </p>
+                </div>
+                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium">{p.status}</span>
+              </div>
+            ))}
+          </div>
+>>>>>>> Stashed changes
         </div>
       </section>
     </main>
