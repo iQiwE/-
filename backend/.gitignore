@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+oracle-data-snapshot.json
+.env
+.env.*
+!.env.example
+*.log
+coverage/
