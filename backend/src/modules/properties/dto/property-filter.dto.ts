@@ -1,39 +1,44 @@
-import { Type } from 'class-transformer';
-<<<<<<< Updated upstream
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export type PropertySortBy = 'newest' | 'price_asc' | 'price_desc' | 'area_desc';
-=======
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
->>>>>>> Stashed changes
+
+const toOptionalBoolean = ({ value }: { value: unknown }) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'boolean') return value;
+  if (value === 'true' || value === '1' || value === 1) return true;
+  if (value === 'false' || value === '0' || value === 0) return false;
+  return value;
+};
 
 export class PropertyFilterDto {
-  @IsOptional() @IsString()
+  @IsOptional() @IsString() @MaxLength(100)
   district?: string;
 
-  @IsOptional() @Type(() => Number) @Min(0)
+  @IsOptional() @Type(() => Number) @Min(0) @Max(100000000)
   minPrice?: number;
 
-  @IsOptional() @Type(() => Number) @Min(0)
+  @IsOptional() @Type(() => Number) @Min(0) @Max(100000000)
   maxPrice?: number;
 
-  @IsOptional() @Type(() => Number) @IsInt()
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100)
   typeId?: number;
 
-<<<<<<< Updated upstream
+  @IsOptional() @Transform(toOptionalBoolean) @IsBoolean()
+  petsAllowed?: boolean;
+
+  @IsOptional() @Transform(toOptionalBoolean) @IsBoolean()
+  noDeposit?: boolean;
+
+  @IsOptional() @Transform(toOptionalBoolean) @IsBoolean()
+  fromOwner?: boolean;
+
   @IsOptional() @IsIn(['newest', 'price_asc', 'price_desc', 'area_desc'])
   sortBy?: PropertySortBy = 'newest';
 
-=======
->>>>>>> Stashed changes
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1)
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(10000)
   page: number = 1;
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100)
-<<<<<<< Updated upstream
   limit: number = 8;
-=======
-  limit: number = 12;
->>>>>>> Stashed changes
 }
-

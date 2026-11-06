@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { IsIn, IsOptional } from 'class-validator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -8,26 +9,24 @@ import { ApplicationStatus } from './application.entity';
 import { ApplicationsService } from './applications.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
 
+export class ApplicationStatusFilterDto {
+  @IsOptional()
+  @IsIn(['PENDING', 'APPROVED', 'REJECTED'])
+  status?: ApplicationStatus;
+}
+
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ApplicationsController {
   constructor(private readonly service: ApplicationsService) {}
 
   @Post('properties/:id/applications')
-<<<<<<< Updated upstream
-=======
-  @Roles('TENANT')
->>>>>>> Stashed changes
   submit(
     @Param('id', ParseIntPipe) propertyId: number,
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateApplicationDto,
   ) {
-<<<<<<< Updated upstream
     return this.service.submit(propertyId, user, dto);
-=======
-    return this.service.submit(propertyId, user.id, dto);
->>>>>>> Stashed changes
   }
 
   @Get('tenant/applications')
@@ -38,8 +37,8 @@ export class ApplicationsController {
 
   @Get('landlord/applications')
   @Roles('LANDLORD')
-  findIncoming(@CurrentUser() user: AuthUser, @Query('status') status?: ApplicationStatus) {
-    return this.service.findForLandlord(user.id, status);
+  findIncoming(@CurrentUser() user: AuthUser, @Query() query: ApplicationStatusFilterDto) {
+    return this.service.findForLandlord(user.id, query.status);
   }
 
   @Patch('applications/:id/approve')
@@ -55,4 +54,3 @@ export class ApplicationsController {
     return this.service.reject(id, user.id);
   }
 }
-

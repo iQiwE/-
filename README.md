@@ -173,29 +173,36 @@ lsnrctl start
 
 ### Структура таблиц Oracle Database
 
-1. **`USERS`** — пользователи системы (`user_id`, `full_name`, `email`, `phone`, `password_hash`, `role` (`LANDLORD` / `TENANT` / `ADMIN`)).
-2. **`PROPERTY_TYPES`** — справочник типов жилья (`type_id`, `type_name`: Квартира, Студия, Апартаменты, Лофт).
-3. **`ADDRESSES`** — адреса и геокоординаты объектов (`address_id`, `city`, `district`, `street`, `building`, `apartment`, `lat`, `lng`).
-4. **`PROPERTIES`** — объекты недвижимости (`property_id`, `owner_id`, `type_id`, `address_id`, `title`, `description`, `rooms`, `area`, `monthly_price`, `status` (`AVAILABLE` / `RENTED` / `INACTIVE`), `created_at`).
-5. **`RENTAL_APPLICATIONS`** — заявки арендаторов (`application_id`, `property_id`, `tenant_id`, `desired_start_date`, `lease_months`, `message`, `status` (`PENDING` / `APPROVED` / `REJECTED`), `created_at`).
-6. **`CONTRACTS`** — договоры аренды (`contract_id`, `application_id`, `property_id`, `tenant_id`, `landlord_id`, `start_date`, `end_date`, `monthly_amount`, `status`).
-7. **`PAYMENTS`** — график ежемесячных платежей (`payment_id`, `contract_id`, `due_date`, `amount`, `status` (`PENDING` / `PAID` / `OVERDUE`), `paid_at`).
+1. **`LANDLORDS`** — арендодатели (`id`, `full_name`, `email`, `phone`, `password_hash`).
+2. **`TENANTS`** — арендаторы (`id`, `full_name`, `email`, `phone`, `password_hash`).
+3. **`PROPERTY_TYPES`** — справочник типов жилья (`type_id`, `type_name`: Квартира, Студия, Апартаменты, Лофт).
+4. **`ADDRESSES`** — адреса и геокоординаты объектов (`address_id`, `city`, `district`, `street`, `building`, `apartment`, `lat`, `lng`).
+5. **`PROPERTIES`** — объекты недвижимости (`property_id`, `landlord_id`, `type_id`, `address_id`, `title`, `description`, `rooms`, `area`, `monthly_price`, `pets_allowed`, `no_deposit`, `from_owner`, `status` (`AVAILABLE` / `RENTED` / `INACTIVE`), `created_at`).
+6. **`FAVORITES`** — избранные объекты арендаторов (`user_id`, `property_id`, `created_at`).
+7. **`RENTAL_APPLICATIONS`** — заявки арендаторов (`application_id`, `property_id`, `tenant_id`, `desired_start_date`, `lease_months`, `message`, `status` (`PENDING` / `APPROVED` / `REJECTED`), `created_at`).
+8. **`CONTRACTS`** — договоры аренды (`contract_id`, `application_id`, `property_id`, `tenant_id`, `landlord_id`, `start_date`, `end_date`, `monthly_amount`, `status`).
+9. **`PAYMENTS`** — график ежемесячных платежей (`payment_id`, `contract_id`, `due_date`, `amount`, `status` (`PENDING` / `PAID` / `OVERDUE`), `paid_at`).
 
 ### SQL-скрипты инициализации и миграции
 
 Скрипты расположены в директории `backend/sql/`:
-- `backend/sql/seed.sql` — создание всех таблиц (`CREATE TABLE`), ограничений целостности, справочника типов недвижимости и базовых тестовых пользователей.
-- `backend/sql/02_add_coordinates_and_10_properties.sql` — добавление колонок координат (`LAT`, `LNG`) в таблицу `ADDRESSES` и наполнение базы 14 реалистичными объектами недвижимости в ВКО (Усть-Каменогорск, Риддер).
+- `backend/sql/seed.sql` — создание таблиц (`CREATE TABLE`), ограничений целостности, справочника типов недвижимости и тестовых пользователей.
+- `backend/sql/02_add_coordinates_and_10_properties.sql` — добавление колонок координат (`LAT`, `LNG`) в таблицу `ADDRESSES` и наполнение базы базовыми объектами недвижимости в ВКО.
+- `backend/sql/03_split_users_into_tenants_and_landlords.sql` — разделение единой таблицы пользователей на `LANDLORDS` и `TENANTS` с обновлением внешних ключей.
+- `backend/sql/04_add_favorites_and_amenities.sql` — добавление таблицы `FAVORITES` и умных тегов (`pets_allowed`, `no_deposit`, `from_owner`) в `PROPERTIES`.
+- `backend/sql/05_seed_3_landlords_and_30_properties.sql` — создание 3 дополнительных арендодателей (`LANDLORDS`) и 30 новых объектов недвижимости (по 10 квартир на каждого арендодателя) со статусом `AVAILABLE`.
 
 Применение скриптов через `sqlplus` (или внутри Docker-контейнера):
 ```bash
 # Через локальный sqlplus
 sqlplus rental/change_me@localhost:1521/FREEPDB1 @backend/sql/seed.sql
 sqlplus rental/change_me@localhost:1521/FREEPDB1 @backend/sql/02_add_coordinates_and_10_properties.sql
+sqlplus rental/change_me@localhost:1521/FREEPDB1 @backend/sql/05_seed_3_landlords_and_30_properties.sql
 
 # Либо если БД запущена в Docker-контейнере oracle-rental
 docker exec -i oracle-rental sqlplus rental/change_me@localhost:1521/FREEPDB1 < backend/sql/seed.sql
 docker exec -i oracle-rental sqlplus rental/change_me@localhost:1521/FREEPDB1 < backend/sql/02_add_coordinates_and_10_properties.sql
+docker exec -i oracle-rental sqlplus rental/change_me@localhost:1521/FREEPDB1 < backend/sql/05_seed_3_landlords_and_30_properties.sql
 ```
 
 ### Просмотр содержимого БД (Терминал и DBeaver / DataGrip)
@@ -205,7 +212,7 @@ docker exec -i oracle-rental sqlplus rental/change_me@localhost:1521/FREEPDB1 < 
 cd backend
 node db-viewer.js
 ```
-Скрипт выводит содержимое таблиц `USERS`, `PROPERTIES` и `RENTAL_APPLICATIONS` в виде таблиц `console.table`.
+Скрипт выводит содержимое таблиц `LANDLORDS`, `TENANTS`, `PROPERTIES`, `FAVORITES` и `RENTAL_APPLICATIONS` в виде таблиц `console.table`.
 
 **2. Подключение через DBeaver / DataGrip:**
 - **Host:** `localhost` (`127.0.0.1`)
@@ -222,7 +229,10 @@ node db-viewer.js
 Страница входа: `http://localhost:3000/login`  
 Страница регистрации: `http://localhost:3000/register`
 
-| Роль | Email (Логин) | Пароль | Доступный функционал |
-|---|---|---|---|
-| **Арендодатель (`LANDLORD`)** | `landlord@example.com` | `demo123` | Личный кабинет (`/landlord`): публикация новых объектов, фильтрация и сортировка, управление статусами (`AVAILABLE` / `INACTIVE` / `RENTED`), просмотр входящих заявок только по своим объектам, одобрение и отклонение заявок. |
-| **Арендатор (`TENANT`)** | `tenant@example.com` | `demo123` | Каталог и карта (`/catalog`), детальная страница объекта (`/properties/[id]`), подача заявок на аренду. Доступ к `/landlord` и создание объектов заблокированы (RBAC `403 Forbidden`). |
+| Роль | ФИО | Email (Логин) | Пароль (открытый) | Телефон | Примечание / Объекты |
+|---|---|---|---|---|---|
+| **Арендодатель (`LANDLORD`)** | Иван Петров | `landlord@example.com` | `demo123` | `+79001112233` | Базовый аккаунт арендодателя (14 объектов по ВКО). |
+| **Арендодатель (`LANDLORD`)** | Алихан Серикович Нурпеисов | `alikhan@example.com` | `alikhan123` | `+77015551001` | 10 квартир (`AVAILABLE`) в Усть-Каменогорске и Риддере. |
+| **Арендодатель (`LANDLORD`)** | Дана Маратовна Ахметова | `dana@example.com` | `dana123` | `+77025552002` | 10 квартир (`AVAILABLE`) в Усть-Каменогорске и Риддере. |
+| **Арендодатель (`LANDLORD`)** | Тимур Ерланович Касымов | `timur@example.com` | `timur123` | `+77055553003` | 10 квартир (`AVAILABLE`) в Усть-Каменогорске и Риддере. |
+| **Арендатор (`TENANT`)** | Анна Смирнова | `tenant@example.com` | `demo123` | `+79004445566` | Каталог (`/catalog`), избранное (`/favorites`), подача заявок на аренду. |

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import oracledb, { BindParameters } from 'oracledb';
+import { defaultImageUrlForPropertyId } from '../../database/in-memory-oracle.store';
 import { OracleService, TxConnection } from '../../database/oracle.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { PropertyFilterDto } from './dto/property-filter.dto';
@@ -7,17 +8,12 @@ import { UpdatePropertyDto } from './dto/update-property.dto';
 import { Paginated, Property, PropertyStatus } from './property.entity';
 
 const BASE_SELECT = `
-<<<<<<< Updated upstream
   SELECT p.property_id, p.landlord_id, p.title, p.description, p.rooms, p.area,
-         p.monthly_price, p.status, p.created_at,
+         p.monthly_price, p.pets_allowed, p.no_deposit, p.from_owner, p.image_url,
+         p.status, p.created_at,
          t.type_id, t.type_name,
-         a.city, a.district, a.street, a.building, a.apartment, a.lat, a.lng
-=======
-  SELECT p.property_id, p.owner_id, p.title, p.description, p.rooms, p.area,
-         p.monthly_price, p.status, p.created_at,
-         t.type_id, t.type_name,
-         a.city, a.district, a.street, a.building, a.apartment
->>>>>>> Stashed changes
+         a.city, a.district, a.street, a.building, a.apartment, a.lat, a.lng,
+         AVG(p.monthly_price) OVER (PARTITION BY UPPER(a.district)) AS district_avg_price
     FROM properties p
     JOIN property_types t ON t.type_id = p.type_id
     JOIN addresses a      ON a.address_id = p.address_id`;
@@ -30,6 +26,10 @@ const UPDATABLE_COLUMNS: Record<keyof UpdatePropertyDto, string> = {
   rooms: 'rooms',
   area: 'area',
   monthlyPrice: 'monthly_price',
+  petsAllowed: 'pets_allowed',
+  noDeposit: 'no_deposit',
+  fromOwner: 'from_owner',
+  imageUrl: 'image_url',
 };
 
 /** Доступ к данным PROPERTIES и ADDRESSES. Бизнес-правил не содержит (SRP). */
@@ -38,7 +38,11 @@ export class PropertiesRepository {
   constructor(private readonly db: OracleService) {}
 
   async findAvailable(filter: PropertyFilterDto): Promise<Paginated<Property>> {
-    const where: string[] = [`p.status = 'AVAILABLE'`];
+    // Принудительная фильтрация только доступных квартир (AVAILABLE) без активных договоров
+    const where: string[] = [
+      `p.status = 'AVAILABLE'`,
+      `NOT EXISTS (SELECT 1 FROM contracts c WHERE c.property_id = p.property_id AND c.status = 'ACTIVE')`,
+    ];
     const binds: BindParameters = {};
 
     if (filter.district) {
@@ -57,10 +61,21 @@ export class PropertiesRepository {
       where.push('p.type_id = :typeId');
       binds.typeId = filter.typeId;
     }
+    if (filter.petsAllowed !== undefined) {
+      where.push('p.pets_allowed = :petsAllowed');
+      binds.petsAllowed = filter.petsAllowed ? 1 : 0;
+    }
+    if (filter.noDeposit !== undefined) {
+      where.push('p.no_deposit = :noDeposit');
+      binds.noDeposit = filter.noDeposit ? 1 : 0;
+    }
+    if (filter.fromOwner !== undefined) {
+      where.push('p.from_owner = :fromOwner');
+      binds.fromOwner = filter.fromOwner ? 1 : 0;
+    }
 
     binds.offset = (filter.page - 1) * filter.limit;
     binds.limit = filter.limit;
-<<<<<<< Updated upstream
     if (filter.sortBy) binds.sortBy = filter.sortBy;
 
     const orderByMap: Record<string, string> = {
@@ -70,17 +85,11 @@ export class PropertiesRepository {
       area_desc: 'q.area DESC, q.created_at DESC',
     };
     const orderBy = orderByMap[filter.sortBy ?? 'newest'] ?? 'q.created_at DESC';
-=======
->>>>>>> Stashed changes
 
     // COUNT(*) OVER() возвращает общее количество за один запрос
     const rows = await this.db.query<any>(
       `SELECT q.*, COUNT(*) OVER() AS total_count FROM (${BASE_SELECT} WHERE ${where.join(' AND ')}) q
-<<<<<<< Updated upstream
         ORDER BY ${orderBy}
-=======
-        ORDER BY q.created_at DESC
->>>>>>> Stashed changes
        OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY`,
       binds,
     );
@@ -99,17 +108,10 @@ export class PropertiesRepository {
     return rows[0] ? mapRow(rows[0]) : null;
   }
 
-<<<<<<< Updated upstream
   async findByOwner(landlordId: number): Promise<Property[]> {
     const rows = await this.db.query<any>(
       `${BASE_SELECT} WHERE p.landlord_id = :landlordId ORDER BY p.created_at DESC`,
       { landlordId },
-=======
-  async findByOwner(ownerId: number): Promise<Property[]> {
-    const rows = await this.db.query<any>(
-      `${BASE_SELECT} WHERE p.owner_id = :ownerId ORDER BY p.created_at DESC`,
-      { ownerId },
->>>>>>> Stashed changes
     );
     return rows.map(mapRow);
   }
@@ -119,6 +121,7 @@ export class PropertiesRepository {
       `SELECT DISTINCT a.district FROM addresses a
          JOIN properties p ON p.address_id = a.address_id
         WHERE p.status = 'AVAILABLE'
+          AND NOT EXISTS (SELECT 1 FROM contracts c WHERE c.property_id = p.property_id AND c.status = 'ACTIVE')
         ORDER BY a.district`,
     );
     return rows.map((r) => r.DISTRICT);
@@ -127,13 +130,8 @@ export class PropertiesRepository {
   /** Создаёт адрес и объект в рамках переданной транзакции. */
   async create(ownerId: number, dto: CreatePropertyDto, tx: TxConnection): Promise<number> {
     const addr = await this.db.execute(
-<<<<<<< Updated upstream
       `INSERT INTO addresses (city, district, street, building, apartment, lat, lng)
        VALUES (:city, :district, :street, :building, :apartment, :lat, :lng)
-=======
-      `INSERT INTO addresses (city, district, street, building, apartment)
-       VALUES (:city, :district, :street, :building, :apartment)
->>>>>>> Stashed changes
        RETURNING address_id INTO :id`,
       {
         city: dto.address.city,
@@ -141,11 +139,8 @@ export class PropertiesRepository {
         street: dto.address.street,
         building: dto.address.building,
         apartment: dto.address.apartment ?? null,
-<<<<<<< Updated upstream
         lat: dto.address.lat ?? 49.953,
         lng: dto.address.lng ?? 82.618,
-=======
->>>>>>> Stashed changes
         id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       },
       tx,
@@ -153,19 +148,11 @@ export class PropertiesRepository {
     const addressId = (addr.outBinds as any).id[0];
 
     const prop = await this.db.execute(
-<<<<<<< Updated upstream
-      `INSERT INTO properties (landlord_id, type_id, address_id, title, description, rooms, area, monthly_price, status, created_at)
-       VALUES (:landlordId, :typeId, :addressId, :title, :description, :rooms, :area, :monthlyPrice, 'AVAILABLE', SYSTIMESTAMP)
+      `INSERT INTO properties (landlord_id, type_id, address_id, title, description, rooms, area, monthly_price, pets_allowed, no_deposit, from_owner, image_url, status, created_at)
+       VALUES (:landlordId, :typeId, :addressId, :title, :description, :rooms, :area, :monthlyPrice, :petsAllowed, :noDeposit, :fromOwner, :imageUrl, 'AVAILABLE', SYSTIMESTAMP)
        RETURNING property_id INTO :id`,
       {
         landlordId: ownerId,
-=======
-      `INSERT INTO properties (owner_id, type_id, address_id, title, description, rooms, area, monthly_price, status, created_at)
-       VALUES (:ownerId, :typeId, :addressId, :title, :description, :rooms, :area, :monthlyPrice, 'AVAILABLE', SYSTIMESTAMP)
-       RETURNING property_id INTO :id`,
-      {
-        ownerId,
->>>>>>> Stashed changes
         typeId: dto.typeId,
         addressId,
         title: dto.title,
@@ -173,6 +160,10 @@ export class PropertiesRepository {
         rooms: dto.rooms,
         area: dto.area,
         monthlyPrice: dto.monthlyPrice,
+        petsAllowed: dto.petsAllowed ? 1 : 0,
+        noDeposit: dto.noDeposit ? 1 : 0,
+        fromOwner: dto.fromOwner !== undefined ? (dto.fromOwner ? 1 : 0) : 1,
+        imageUrl: dto.imageUrl ?? null,
         id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       },
       tx,
@@ -187,7 +178,8 @@ export class PropertiesRepository {
     (Object.keys(dto) as (keyof UpdatePropertyDto)[]).forEach((key) => {
       if (dto[key] !== undefined && UPDATABLE_COLUMNS[key]) {
         sets.push(`${UPDATABLE_COLUMNS[key]} = :${key}`);
-        binds[key] = dto[key] as any;
+        const rawVal = dto[key];
+        binds[key] = typeof rawVal === 'boolean' ? (rawVal ? 1 : 0) : (rawVal as any);
       }
     });
     if (!sets.length) return;
@@ -195,25 +187,38 @@ export class PropertiesRepository {
     await this.db.execute(`UPDATE properties SET ${sets.join(', ')} WHERE property_id = :id`, binds);
   }
 
+  async updateImageUrl(id: number, imageUrl: string): Promise<void> {
+    await this.db.execute(`UPDATE properties SET image_url = :imageUrl WHERE property_id = :id`, {
+      id,
+      imageUrl,
+    });
+  }
+
   async updateStatus(id: number, status: PropertyStatus, tx?: TxConnection): Promise<void> {
     await this.db.execute(`UPDATE properties SET status = :status WHERE property_id = :id`, { id, status }, tx);
   }
 }
 
-/** Преобразование строки Oracle (UPPER_CASE) в доменную модель. */
-function mapRow(r: any): Property {
+/** Преобразование строки Oracle (UPPER_CASE) в доменную модель с расчётом аналитики цены (is_good_price). */
+export function mapRow(r: any): Property {
+  const monthlyPrice = Number(r.MONTHLY_PRICE);
+  const districtAvg = Number(r.DISTRICT_AVG_PRICE ?? monthlyPrice);
+  const isGoodPrice = districtAvg > 0 && monthlyPrice < districtAvg * 0.95;
+
   return {
     id: r.PROPERTY_ID,
-<<<<<<< Updated upstream
     ownerId: r.LANDLORD_ID ?? r.OWNER_ID,
-=======
-    ownerId: r.OWNER_ID,
->>>>>>> Stashed changes
     title: r.TITLE,
     description: r.DESCRIPTION,
     rooms: r.ROOMS,
     area: r.AREA,
-    monthlyPrice: r.MONTHLY_PRICE,
+    monthlyPrice,
+    petsAllowed: Boolean(Number(r.PETS_ALLOWED ?? 0)),
+    noDeposit: Boolean(Number(r.NO_DEPOSIT ?? 0)),
+    fromOwner: Boolean(Number(r.FROM_OWNER ?? 1)),
+    image_url: r.IMAGE_URL || defaultImageUrlForPropertyId(r.PROPERTY_ID),
+    districtAvgPrice: Math.round(districtAvg),
+    is_good_price: isGoodPrice,
     status: r.STATUS,
     createdAt: r.CREATED_AT,
     type: { id: r.TYPE_ID, name: r.TYPE_NAME },
@@ -223,12 +228,8 @@ function mapRow(r: any): Property {
       street: r.STREET,
       building: r.BUILDING,
       apartment: r.APARTMENT,
-<<<<<<< Updated upstream
       lat: Number(r.LAT ?? 49.953),
       lng: Number(r.LNG ?? 82.618),
-=======
->>>>>>> Stashed changes
     },
   };
 }
-

@@ -32,12 +32,13 @@ function RegisterForm() {
         role,
       });
       saveSession(res);
-      const nextUrl =
-        redirectParam && redirectParam.startsWith('/')
-          ? redirectParam
-          : res.user.role === 'LANDLORD'
-            ? '/landlord'
-            : '/catalog';
+      const isSafeRelativeRedirect =
+        redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//') && !redirectParam.startsWith('/\\');
+      const nextUrl = isSafeRelativeRedirect
+        ? redirectParam
+        : res.user.role === 'LANDLORD'
+          ? '/landlord'
+          : '/catalog';
       router.push(nextUrl);
       router.refresh();
     } catch (err: any) {
@@ -50,12 +51,12 @@ function RegisterForm() {
   const loginHref = redirectParam ? `/login?redirect=${encodeURIComponent(redirectParam)}` : '/login';
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-sm">
-      <h1 className="text-xl font-bold text-gray-900">Регистрация аккаунта</h1>
-      <p className="mt-1 text-sm text-gray-500">Создайте аккаунт арендатора или арендодателя</p>
+    <div className="rounded-2xl border border-[#ECE2D6] bg-white p-8 shadow-[0_4px_24px_rgba(44,34,30,0.05)]">
+      <h1 className="font-serif text-2xl font-semibold text-[#2C221E]">Регистрация аккаунта</h1>
+      <p className="mt-1.5 text-sm text-[#6B5B50]">Создайте аккаунт арендатора или арендодателя</p>
 
-      <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+      <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
           ФИО / Имя
           <input
             type="text"
@@ -63,11 +64,11 @@ function RegisterForm() {
             placeholder="Например: Алексей Сериков"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-normal focus:border-blue-500 focus:outline-none"
+            className="rounded-xl border border-[#E2D6C8] bg-[#FAF6F0]/60 px-3.5 py-2.5 text-sm font-normal text-[#2C221E] focus:border-[#B85D3B] focus:bg-white focus:outline-none"
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
           Email
           <input
             type="email"
@@ -75,40 +76,40 @@ function RegisterForm() {
             placeholder="user@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-normal focus:border-blue-500 focus:outline-none"
+            className="rounded-xl border border-[#E2D6C8] bg-[#FAF6F0]/60 px-3.5 py-2.5 text-sm font-normal text-[#2C221E] focus:border-[#B85D3B] focus:bg-white focus:outline-none"
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
           Телефон (необязательно)
           <input
             type="tel"
             placeholder="+7 777 000 00 00"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-normal focus:border-blue-500 focus:outline-none"
+            className="rounded-xl border border-[#E2D6C8] bg-[#FAF6F0]/60 px-3.5 py-2.5 text-sm font-normal text-[#2C221E] focus:border-[#B85D3B] focus:bg-white focus:outline-none"
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
           Пароль
           <input
             type="password"
             required
-            minLength={4}
-            placeholder="Минимум 4 символа"
+            minLength={6}
+            placeholder="Минимум 6 символов"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-normal focus:border-blue-500 focus:outline-none"
+            className="rounded-xl border border-[#E2D6C8] bg-[#FAF6F0]/60 px-3.5 py-2.5 text-sm font-normal text-[#2C221E] focus:border-[#B85D3B] focus:bg-white focus:outline-none"
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
           Роль в системе
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as 'TENANT' | 'LANDLORD')}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-normal text-gray-900 focus:border-blue-500 focus:outline-none"
+            className="rounded-xl border border-[#E2D6C8] bg-[#FAF6F0]/60 px-3.5 py-2.5 text-sm font-normal text-[#2C221E] focus:border-[#B85D3B] focus:bg-white focus:outline-none"
           >
             <option value="TENANT">Арендатор (TENANT) — поиск и подача заявок</option>
             <option value="LANDLORD">Арендодатель (LANDLORD) — сдача недвижимости</option>
@@ -116,7 +117,7 @@ function RegisterForm() {
         </label>
 
         {error && (
-          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700" role="alert">
+          <div className="rounded-xl bg-[#FDF2EE] p-3.5 text-sm text-[#9E3B24]" role="alert">
             {error}
           </div>
         )}
@@ -124,15 +125,15 @@ function RegisterForm() {
         <button
           type="submit"
           disabled={loading}
-          className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="mt-1 rounded-xl bg-[#B85D3B] px-5 py-3 text-sm font-medium text-white shadow-xs transition hover:bg-[#9E4B2D] disabled:opacity-50"
         >
           {loading ? 'Создание аккаунта...' : 'Зарегистрироваться'}
         </button>
       </form>
 
-      <div className="mt-4 text-center text-sm text-gray-600">
+      <div className="mt-5 text-center text-sm text-[#6B5B50]">
         Уже есть аккаунт?{' '}
-        <Link href={loginHref} className="font-semibold text-blue-600 hover:underline">
+        <Link href={loginHref} className="font-semibold text-[#B85D3B] hover:underline">
           Войти
         </Link>
       </div>
@@ -142,11 +143,10 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center px-4 py-12">
+    <main className="mx-auto flex min-h-[calc(100vh-12rem)] max-w-md flex-col justify-center px-4 py-14">
       <Suspense fallback={null}>
         <RegisterForm />
       </Suspense>
     </main>
   );
 }
-

@@ -19,9 +19,9 @@ function loadEnv() {
     }
   }
   return {
-    user: process.env.ORACLE_USER || env.ORACLE_USER || 'rental',
-    password: process.env.ORACLE_PASSWORD || env.ORACLE_PASSWORD || 'change_me',
-    connectString: process.env.ORACLE_CONNECT_STRING || env.ORACLE_CONNECT_STRING || 'localhost:1521/FREEPDB1',
+    user: process.env.ORACLE_USER || env.ORACLE_USER,
+    password: process.env.ORACLE_PASSWORD || env.ORACLE_PASSWORD,
+    connectString: process.env.ORACLE_CONNECT_STRING || env.ORACLE_CONNECT_STRING,
   };
 }
 
@@ -30,6 +30,9 @@ async function fetchFromOracleOrFallback(cfg) {
   oracledb.fetchAsString = [oracledb.CLOB];
 
   try {
+    if (!cfg.user || !cfg.password || !cfg.connectString) {
+      throw new Error('ORACLE_USER, ORACLE_PASSWORD or ORACLE_CONNECT_STRING not configured in .env');
+    }
     const conn = await oracledb.getConnection({
       user: cfg.user,
       password: cfg.password,
@@ -41,14 +44,15 @@ async function fetchFromOracleOrFallback(cfg) {
     const landlords = (await conn.execute('SELECT * FROM LANDLORDS ORDER BY ID')).rows ?? [];
     const tenants = (await conn.execute('SELECT * FROM TENANTS ORDER BY ID')).rows ?? [];
     const properties = (await conn.execute('SELECT * FROM PROPERTIES ORDER BY PROPERTY_ID')).rows ?? [];
+    const favorites = (await conn.execute('SELECT * FROM FAVORITES ORDER BY CREATED_AT DESC')).rows ?? [];
     const applications =
       (await conn.execute('SELECT * FROM RENTAL_APPLICATIONS ORDER BY APPLICATION_ID')).rows ?? [];
 
     await conn.close();
-    return { landlords, tenants, properties, applications };
+    return { landlords, tenants, properties, favorites, applications };
   } catch (err) {
     console.log(
-      `[DB] Oracle listener at ${cfg.connectString} unavailable (${err.message.split('\n')[0]}).`,
+      `[DB] Oracle listener at ${cfg.connectString || 'unconfigured'} unavailable (${err.message.split('\n')[0]}).`,
     );
     const snapshotPath = path.resolve(__dirname, 'oracle-data-snapshot.json');
     console.log(`[DB] Reading active tables from synchronized store (${snapshotPath})...\n`);
@@ -58,14 +62,15 @@ async function fetchFromOracleOrFallback(cfg) {
     const landlords = await store.query('SELECT * FROM LANDLORDS ORDER BY ID');
     const tenants = await store.query('SELECT * FROM TENANTS ORDER BY ID');
     const properties = await store.query('SELECT * FROM PROPERTIES ORDER BY PROPERTY_ID');
+    const favorites = await store.query('SELECT * FROM FAVORITES ORDER BY CREATED_AT DESC');
     const applications = await store.query('SELECT * FROM RENTAL_APPLICATIONS ORDER BY APPLICATION_ID');
-    return { landlords, tenants, properties, applications };
+    return { landlords, tenants, properties, favorites, applications };
   }
 }
 
 async function main() {
   const cfg = loadEnv();
-  const { landlords, tenants, properties, applications } = await fetchFromOracleOrFallback(cfg);
+  const { landlords, tenants, properties, favorites, applications } = await fetchFromOracleOrFallback(cfg);
 
   console.log('=== SELECT * FROM LANDLORDS ===');
   console.table(
@@ -94,15 +99,24 @@ async function main() {
     properties.map((p) => ({
       PROPERTY_ID: p.PROPERTY_ID,
       LANDLORD_ID: p.LANDLORD_ID,
-      TYPE_ID: p.TYPE_ID,
-      ADDRESS_ID: p.ADDRESS_ID,
       TITLE: p.TITLE,
       ROOMS: p.ROOMS,
       AREA: p.AREA,
       MONTHLY_PRICE: p.MONTHLY_PRICE,
+      PETS_ALLOWED: p.PETS_ALLOWED,
+      NO_DEPOSIT: p.NO_DEPOSIT,
+      FROM_OWNER: p.FROM_OWNER,
+      IMAGE_URL: p.IMAGE_URL ? String(p.IMAGE_URL).slice(0, 38) + '...' : null,
       STATUS: p.STATUS,
     })),
   );
+
+  console.log('\n=== SELECT * FROM FAVORITES ===');
+  if (favorites.length === 0) {
+    console.log('(Записей в FAVORITES пока нет)');
+  } else {
+    console.table(favorites);
+  }
 
   console.log('\n=== SELECT * FROM RENTAL_APPLICATIONS ===');
   if (applications.length === 0) {

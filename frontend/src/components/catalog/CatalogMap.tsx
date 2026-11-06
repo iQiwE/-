@@ -24,7 +24,7 @@ const DEFAULT_ZOOM = 12;
 function createClusterIcon(count: number) {
   const size = count < 5 ? 38 : count < 10 ? 44 : 50;
   return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:#1d4ed8;color:#fff;font-weight:700;font-size:14px;border:3px solid #bfdbfe;box-shadow:0 4px 10px rgba(0,0,0,0.25);">${count}</div>`,
+    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:#B85D3B;color:#FAF6F0;font-weight:700;font-size:14px;border:3px solid #F5E6DF;box-shadow:0 4px 12px rgba(44,34,30,0.25);">${count}</div>`,
     className: 'property-cluster-marker',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
@@ -34,7 +34,7 @@ function createClusterIcon(count: number) {
 function createPinIcon(price: number) {
   const label = `${Math.round(price / 1000)}k ₸`;
   return L.divIcon({
-    html: `<div style="padding:3px 8px;border-radius:9999px;background:#ffffff;color:#111827;font-weight:700;font-size:12px;border:2px solid #2563eb;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2);">${label}</div>`,
+    html: `<div style="padding:3px 9px;border-radius:9999px;background:#FAF6F0;color:#2C221E;font-weight:700;font-size:12px;border:2px solid #B85D3B;white-space:nowrap;box-shadow:0 2px 8px rgba(44,34,30,0.18);">${label}</div>`,
     className: 'property-pin-marker',
     iconSize: [64, 26],
     iconAnchor: [32, 13],
@@ -124,20 +124,20 @@ function ClusteredMarkers({ properties }: Props) {
           >
             <Popup>
               <div className="flex min-w-[210px] flex-col gap-1.5 text-sm">
-                <span className="text-xs font-medium text-blue-700">
+                <span className="text-xs font-medium text-[#9E4B2D]">
                   {property.type.name} · {property.rooms}-комн. · {property.area} м²
                 </span>
-                <p className="font-semibold text-gray-900">{property.title}</p>
-                <p className="text-xs text-gray-600">
+                <p className="font-serif font-semibold text-[#2C221E]">{property.title}</p>
+                <p className="text-xs text-[#6B5B50]">
                   {property.address.city}, {property.address.district}, {formatAddress(property.address)}
                 </p>
-                <p className="text-base font-bold text-blue-600">
+                <p className="text-base font-bold text-[#B85D3B]">
                   {formatPrice(property.monthlyPrice)}{' '}
-                  <span className="text-xs font-normal text-gray-500">/ мес.</span>
+                  <span className="text-xs font-normal text-[#7A6A5E]">/ мес.</span>
                 </p>
                 <Link
                   href={`/properties/${property.id}`}
-                  className="mt-1 inline-block rounded-md bg-blue-600 px-3 py-1.5 text-center text-xs font-medium !text-white hover:bg-blue-700"
+                  className="mt-1 inline-block rounded-lg bg-[#B85D3B] px-3 py-1.5 text-center text-xs font-medium !text-white hover:bg-[#9E4B2D]"
                 >
                   Открыть карточку →
                 </Link>
@@ -152,9 +152,9 @@ function ClusteredMarkers({ properties }: Props) {
 
 export default function CatalogMap({ properties }: Props) {
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b px-4 py-2.5 text-xs text-gray-600">
-        <span className="font-semibold text-gray-800">Интерактивная карта объектов (ВКО)</span>
+    <div className="overflow-hidden rounded-2xl border border-[#E8DFD3] bg-[#FAF6F0] shadow-[0_4px_24px_rgba(44,34,30,0.04)]">
+      <div className="flex items-center justify-between border-b border-[#E8DFD3] bg-[#FAF6F0] px-5 py-3 text-xs text-[#6B5B50]">
+        <span className="font-semibold text-[#2C221E]">Интерактивная карта объектов (ВКО)</span>
         <span>На карте: {properties.length} объ. · Отдаляйте карту для кластеризации</span>
       </div>
       <div className="h-[420px] w-full">

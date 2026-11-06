@@ -11,7 +11,7 @@ export class ApiError extends Error {
 
 export async function apiGet<T>(
   path: string,
-  params: Record<string, string | number | undefined> = {},
+  params: Record<string, string | number | boolean | undefined> = {},
   signal?: AbortSignal,
   token?: string,
 ): Promise<T> {

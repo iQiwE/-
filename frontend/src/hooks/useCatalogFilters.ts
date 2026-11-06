@@ -2,11 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
-<<<<<<< Updated upstream
 import { CatalogFilter, CatalogSortBy } from '@/types/property';
-=======
-import { CatalogFilter } from '@/types/property';
->>>>>>> Stashed changes
 
 const toNumber = (v: string | null): number | undefined => {
   if (v === null || v === '') return undefined;
@@ -14,8 +10,13 @@ const toNumber = (v: string | null): number | undefined => {
   return Number.isFinite(n) && n >= 0 ? n : undefined;
 };
 
+const toBool = (v: string | null): boolean | undefined => {
+  if (v === 'true' || v === '1') return true;
+  return undefined;
+};
+
 /**
- * Фильтры хранятся в URL (?district=&minPrice=&maxPrice=&page=):
+ * Фильтры хранятся в URL (?district=&minPrice=&maxPrice=&petsAllowed=&noDeposit=&fromOwner=&page=):
  * ссылкой можно поделиться, кнопка «Назад» в браузере работает.
  */
 export function useCatalogFilters() {
@@ -28,10 +29,10 @@ export function useCatalogFilters() {
       district: searchParams.get('district') || undefined,
       minPrice: toNumber(searchParams.get('minPrice')),
       maxPrice: toNumber(searchParams.get('maxPrice')),
-<<<<<<< Updated upstream
+      petsAllowed: toBool(searchParams.get('petsAllowed')),
+      noDeposit: toBool(searchParams.get('noDeposit')),
+      fromOwner: toBool(searchParams.get('fromOwner')),
       sortBy: (searchParams.get('sortBy') as CatalogSortBy) || 'newest',
-=======
->>>>>>> Stashed changes
       page: toNumber(searchParams.get('page')) || 1,
     }),
     [searchParams],
@@ -43,7 +44,7 @@ export function useCatalogFilters() {
       const next = { ...filter, ...patch, page: patch.page ?? 1 };
       const params = new URLSearchParams();
       Object.entries(next).forEach(([key, value]) => {
-        if (value !== undefined && value !== '' && !(key === 'page' && value === 1)) {
+        if (value !== undefined && value !== '' && value !== false && !(key === 'page' && value === 1)) {
           params.set(key, String(value));
         }
       });
@@ -57,4 +58,3 @@ export function useCatalogFilters() {
 
   return { filter, setFilter, resetFilter };
 }
-

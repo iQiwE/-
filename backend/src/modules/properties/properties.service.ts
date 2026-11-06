@@ -39,29 +39,32 @@ export class PropertiesService {
     return this.findOne(id);
   }
 
+  async updateImage(id: number, ownerId: number, imageUrl: string): Promise<Property> {
+    await this.getOwned(id, ownerId);
+    await this.repo.updateImageUrl(id, imageUrl);
+    return this.findOne(id);
+  }
+
   /** Мягкое удаление: история договоров и платежей сохраняется. */
   async remove(id: number, ownerId: number): Promise<void> {
     const property = await this.getOwned(id, ownerId);
     if (property.status === 'RENTED') {
-<<<<<<< Updated upstream
       throw new ConflictException('Нельзя снять с публикации объект, находящийся в аренде (RENTED)');
-=======
-      throw new ConflictException('Cannot unpublish a rented property');
->>>>>>> Stashed changes
     }
     await this.repo.updateStatus(id, 'INACTIVE');
   }
 
-<<<<<<< Updated upstream
   /** Повторная публикация снятого объекта (INACTIVE -> AVAILABLE) или освобождение после аренды. */
   async activate(id: number, ownerId: number): Promise<Property> {
     await this.getOwned(id, ownerId);
+    await this.db.execute(
+      `UPDATE contracts SET status = 'CLOSED' WHERE property_id = :propertyId AND status = 'ACTIVE'`,
+      { propertyId: id },
+    );
     await this.repo.updateStatus(id, 'AVAILABLE');
     return this.findOne(id);
   }
 
-=======
->>>>>>> Stashed changes
   /** Проверяет существование объекта и права владельца. */
   private async getOwned(id: number, ownerId: number): Promise<Property> {
     const property = await this.findOne(id);
@@ -69,4 +72,3 @@ export class PropertiesService {
     return property;
   }
 }
-

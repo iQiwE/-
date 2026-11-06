@@ -7,6 +7,7 @@ import { ApplicationsModule } from './modules/applications/applications.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
 import { DictionariesModule } from './modules/dictionaries/dictionaries.module';
+import { FavoritesModule } from './modules/favorites/favorites.module';
 import { PropertiesModule } from './modules/properties/properties.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { PropertiesModule } from './modules/properties/properties.module';
     DatabaseModule,
     AuthModule,
     PropertiesModule,
+    FavoritesModule,
     ApplicationsModule,
     ContractsModule,
     DictionariesModule,

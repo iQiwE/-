@@ -1,4 +1,14 @@
-import { Controller, ForbiddenException, Get, NotFoundException, Param, ParseIntPipe, Patch, UseGuards } from '@nestjs/common';
+import {
+  ConflictException,
+  Controller,
+  ForbiddenException,
+  Get,
+  NotFoundException,
+  Param,
+  ParseIntPipe,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -13,23 +23,20 @@ export class ContractsController {
 
   @Get('contracts')
   async findMine(@CurrentUser() user: AuthUser) {
-<<<<<<< Updated upstream
-    const whereClause =
-      user.role === 'LANDLORD' ? 'c.landlord_id = :userId' : 'c.tenant_id = :userId';
-=======
->>>>>>> Stashed changes
-    const rows = await this.db.query<any>(
-      `SELECT c.contract_id, c.application_id, c.property_id, c.tenant_id, c.landlord_id,
-              c.start_date, c.end_date, c.monthly_amount, c.status, p.title AS property_title
-         FROM contracts c
-         JOIN properties p ON p.property_id = c.property_id
-<<<<<<< Updated upstream
-        WHERE ${whereClause}`,
-=======
-        WHERE c.landlord_id = :userId OR c.tenant_id = :userId`,
->>>>>>> Stashed changes
-      { userId: user.id },
-    );
+    const sql =
+      user.role === 'LANDLORD'
+        ? `SELECT c.contract_id, c.application_id, c.property_id, c.tenant_id, c.landlord_id,
+                  c.start_date, c.end_date, c.monthly_amount, c.status, p.title AS property_title
+             FROM contracts c
+             JOIN properties p ON p.property_id = c.property_id
+            WHERE c.landlord_id = :landlordId`
+        : `SELECT c.contract_id, c.application_id, c.property_id, c.tenant_id, c.landlord_id,
+                  c.start_date, c.end_date, c.monthly_amount, c.status, p.title AS property_title
+             FROM contracts c
+             JOIN properties p ON p.property_id = c.property_id
+            WHERE c.tenant_id = :tenantId`;
+    const binds = user.role === 'LANDLORD' ? { landlordId: user.id } : { tenantId: user.id };
+    const rows = await this.db.query<any>(sql, binds);
     return rows.map((r) => ({
       id: r.CONTRACT_ID,
       applicationId: r.APPLICATION_ID,
@@ -52,14 +59,10 @@ export class ContractsController {
     );
     const c = contracts[0];
     if (!c) throw new NotFoundException('Contract not found');
-<<<<<<< Updated upstream
     const isParticipant =
       (user.role === 'LANDLORD' && c.LANDLORD_ID === user.id) ||
       (user.role === 'TENANT' && c.TENANT_ID === user.id);
     if (!isParticipant) {
-=======
-    if (c.LANDLORD_ID !== user.id && c.TENANT_ID !== user.id) {
->>>>>>> Stashed changes
       throw new ForbiddenException('Not a participant of this contract');
     }
 
@@ -79,7 +82,26 @@ export class ContractsController {
 
   @Patch('payments/:id/pay')
   @Roles('TENANT')
-  async pay(@Param('id', ParseIntPipe) id: number) {
+  async pay(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
+    const payments = await this.db.query<any>(
+      'SELECT payment_id, contract_id, status FROM payments WHERE payment_id = :id',
+      { id },
+    );
+    const payment = payments[0];
+    if (!payment) throw new NotFoundException('Payment not found');
+
+    const contracts = await this.db.query<any>(
+      'SELECT contract_id, tenant_id FROM contracts c WHERE c.contract_id = :id',
+      { id: payment.CONTRACT_ID },
+    );
+    const contract = contracts[0];
+    if (!contract || contract.TENANT_ID !== user.id) {
+      throw new ForbiddenException('You can only pay for your own rental contracts');
+    }
+    if (payment.STATUS === 'PAID') {
+      throw new ConflictException('Payment is already marked as PAID');
+    }
+
     await this.db.execute(
       `UPDATE payments SET status = 'PAID', paid_at = SYSTIMESTAMP WHERE payment_id = :id`,
       { id },
@@ -87,4 +109,3 @@ export class ContractsController {
     return { id, status: 'PAID' };
   }
 }
-

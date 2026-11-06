@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from 'crypto';
+import * as bcrypt from 'bcryptjs';
 import {
   Body,
   ConflictException,
@@ -13,35 +14,42 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import oracledb from 'oracledb';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AuthUser, UserRole } from '../../common/types/auth-user';
 import { OracleService } from '../../database/oracle.service';
 
-export function hashPassword(plain: string): string {
-  return createHash('sha256').update(plain).digest('hex');
+const BCRYPT_SALT_ROUNDS = 10;
+
+export async function hashPassword(plain: string): Promise<string> {
+  return bcrypt.hash(plain, BCRYPT_SALT_ROUNDS);
 }
 
-export function verifyPassword(plain: string, storedHash: string): boolean {
-  const hashedInput = hashPassword(plain);
-  if (storedHash === plain) return true;
-  if (storedHash.length !== hashedInput.length) return false;
-  return timingSafeEqual(Buffer.from(hashedInput), Buffer.from(storedHash));
+export async function verifyPassword(plain: string, storedHash: string): Promise<boolean> {
+  if (!storedHash || !plain) return false;
+  // Современный bcrypt-хэш ($2a$, $2b$, $2y$)
+  if (storedHash.startsWith('$2a$') || storedHash.startsWith('$2b$') || storedHash.startsWith('$2y$')) {
+    return bcrypt.compare(plain, storedHash);
+  }
+  // Обратная совместимость для существующих записей с SHA-256 (с защитой от timing-атак)
+  const sha256Hex = createHash('sha256').update(plain).digest('hex');
+  if (storedHash.length !== sha256Hex.length) return false;
+  return timingSafeEqual(Buffer.from(sha256Hex), Buffer.from(storedHash));
 }
 
 export class RegisterDto {
-  @IsString() @IsNotEmpty() fullName!: string;
-  @IsEmail() email!: string;
-  @IsOptional() @IsString() phone?: string;
-  @IsString() @IsNotEmpty() password!: string;
+  @IsString() @IsNotEmpty() @MaxLength(150) fullName!: string;
+  @IsEmail() @MaxLength(150) email!: string;
+  @IsOptional() @IsString() @MaxLength(30) phone?: string;
+  @IsString() @IsNotEmpty() @MinLength(6) @MaxLength(128) password!: string;
   @IsIn(['LANDLORD', 'TENANT']) role!: UserRole;
 }
 
 export class LoginDto {
-  @IsEmail() email!: string;
-  @IsString() @IsNotEmpty() password!: string;
+  @IsEmail() @MaxLength(150) email!: string;
+  @IsString() @IsNotEmpty() @MaxLength(128) password!: string;
 }
 
 @Injectable()
@@ -53,36 +61,23 @@ export class AuthService implements OnApplicationBootstrap {
     private readonly jwt: JwtService,
   ) {}
 
-<<<<<<< Updated upstream
-  /** Если таблицы LANDLORDS / TENANTS пусты, автоматически вставляет тестовых пользователей. */
+  /** Если таблицы LANDLORDS / TENANTS пусты, автоматически вставляет демонстрационных пользователей. */
   async onApplicationBootstrap(): Promise<void> {
+    const demoPassword = process.env.DEMO_USER_PASSWORD ?? 'demo123';
     const existingLandlord = await this.db.query<any>(
       'SELECT id FROM landlords WHERE UPPER(email) = UPPER(:email)',
-=======
-  /** Если таблица USERS пуста, автоматически вставляет тестовых LANDLORD и TENANT. */
-  async onApplicationBootstrap(): Promise<void> {
-    const existingLandlord = await this.db.query<any>(
-      'SELECT user_id FROM users WHERE UPPER(email) = UPPER(:email)',
->>>>>>> Stashed changes
       { email: 'landlord@example.com' },
     );
     if (existingLandlord.length === 0) {
       await this.db.execute(
-<<<<<<< Updated upstream
         `INSERT INTO landlords (full_name, email, phone, password_hash)
          VALUES (:fullName, :email, :phone, :passwordHash)
          RETURNING id INTO :id`,
-=======
-        `INSERT INTO users (full_name, email, phone, password_hash, role)
-         VALUES (:fullName, :email, :phone, :passwordHash, :role)
-         RETURNING user_id INTO :id`,
->>>>>>> Stashed changes
         {
           fullName: 'Иван Петров (Арендодатель)',
           email: 'landlord@example.com',
           phone: '+79001112233',
-          passwordHash: hashPassword('demo123'),
-<<<<<<< Updated upstream
+          passwordHash: await hashPassword(demoPassword),
           id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
         },
       );
@@ -91,52 +86,26 @@ export class AuthService implements OnApplicationBootstrap {
 
     const existingTenant = await this.db.query<any>(
       'SELECT id FROM tenants WHERE UPPER(email) = UPPER(:email)',
-=======
-          role: 'LANDLORD',
-          id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-        },
-      );
-      this.logger.log('Seeded test user: landlord@example.com (LANDLORD)');
-    }
-
-    const existingTenant = await this.db.query<any>(
-      'SELECT user_id FROM users WHERE UPPER(email) = UPPER(:email)',
->>>>>>> Stashed changes
       { email: 'tenant@example.com' },
     );
     if (existingTenant.length === 0) {
       await this.db.execute(
-<<<<<<< Updated upstream
         `INSERT INTO tenants (full_name, email, phone, password_hash)
          VALUES (:fullName, :email, :phone, :passwordHash)
          RETURNING id INTO :id`,
-=======
-        `INSERT INTO users (full_name, email, phone, password_hash, role)
-         VALUES (:fullName, :email, :phone, :passwordHash, :role)
-         RETURNING user_id INTO :id`,
->>>>>>> Stashed changes
         {
           fullName: 'Анна Смирнова (Арендатор)',
           email: 'tenant@example.com',
           phone: '+79004445566',
-          passwordHash: hashPassword('demo123'),
-<<<<<<< Updated upstream
+          passwordHash: await hashPassword(demoPassword),
           id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
         },
       );
       this.logger.log('Seeded test tenant: tenant@example.com (TENANTS)');
-=======
-          role: 'TENANT',
-          id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-        },
-      );
-      this.logger.log('Seeded test user: tenant@example.com (TENANT)');
->>>>>>> Stashed changes
     }
   }
 
   async register(dto: RegisterDto) {
-<<<<<<< Updated upstream
     const existingLandlord = await this.db.query<any>(
       'SELECT id FROM landlords WHERE UPPER(email) = UPPER(:email)',
       { email: dto.email },
@@ -149,40 +118,27 @@ export class AuthService implements OnApplicationBootstrap {
       throw new ConflictException('Email already registered');
     }
 
-    const table = dto.role === 'LANDLORD' ? 'landlords' : 'tenants';
-    const res = await this.db.execute(
-      `INSERT INTO ${table} (full_name, email, phone, password_hash)
-       VALUES (:fullName, :email, :phone, :passwordHash)
-       RETURNING id INTO :id`,
-=======
-    const existing = await this.db.query<any>(
-      'SELECT user_id FROM users WHERE UPPER(email) = UPPER(:email)',
-      { email: dto.email },
-    );
-    if (existing.length > 0) throw new ConflictException('Email already registered');
+    const passwordHash = await hashPassword(dto.password);
+    const insertSql =
+      dto.role === 'LANDLORD'
+        ? `INSERT INTO landlords (full_name, email, phone, password_hash)
+           VALUES (:fullName, :email, :phone, :passwordHash)
+           RETURNING id INTO :id`
+        : `INSERT INTO tenants (full_name, email, phone, password_hash)
+           VALUES (:fullName, :email, :phone, :passwordHash)
+           RETURNING id INTO :id`;
 
-    const res = await this.db.execute(
-      `INSERT INTO users (full_name, email, phone, password_hash, role)
-       VALUES (:fullName, :email, :phone, :passwordHash, :role)
-       RETURNING user_id INTO :id`,
->>>>>>> Stashed changes
-      {
-        fullName: dto.fullName,
-        email: dto.email,
-        phone: dto.phone ?? null,
-        passwordHash: hashPassword(dto.password),
-<<<<<<< Updated upstream
-=======
-        role: dto.role,
->>>>>>> Stashed changes
-        id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      },
-    );
+    const res = await this.db.execute(insertSql, {
+      fullName: dto.fullName,
+      email: dto.email,
+      phone: dto.phone ?? null,
+      passwordHash,
+      id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+    });
     const id = (res.outBinds as any).id[0];
-<<<<<<< Updated upstream
     const saved = await this.me({ id, role: dto.role });
     if (!saved) {
-      throw new ConflictException(`Failed to persist user in ${table.toUpperCase()} table`);
+      throw new ConflictException('Failed to persist user in database');
     }
     const token = await this.jwt.signAsync({ sub: saved.id, role: saved.role });
     return { token, user: saved };
@@ -195,7 +151,8 @@ export class AuthService implements OnApplicationBootstrap {
     );
     if (landlordRows[0]) {
       const u = landlordRows[0];
-      if (!verifyPassword(dto.password, u.PASSWORD_HASH)) {
+      const isValid = await verifyPassword(dto.password, u.PASSWORD_HASH);
+      if (!isValid) {
         throw new UnauthorizedException('Неверный email или пароль');
       }
       const token = await this.jwt.signAsync({ sub: u.ID, role: 'LANDLORD' });
@@ -211,7 +168,8 @@ export class AuthService implements OnApplicationBootstrap {
     );
     if (tenantRows[0]) {
       const u = tenantRows[0];
-      if (!verifyPassword(dto.password, u.PASSWORD_HASH)) {
+      const isValid = await verifyPassword(dto.password, u.PASSWORD_HASH);
+      if (!isValid) {
         throw new UnauthorizedException('Неверный email или пароль');
       }
       const token = await this.jwt.signAsync({ sub: u.ID, role: 'TENANT' });
@@ -225,42 +183,13 @@ export class AuthService implements OnApplicationBootstrap {
   }
 
   async me(user: AuthUser) {
-    const table = user.role === 'LANDLORD' ? 'landlords' : 'tenants';
-    const rows = await this.db.query<any>(
-      `SELECT id, full_name, email, phone FROM ${table} WHERE id = :id`,
-      { id: user.id },
-    );
+    const selectSql =
+      user.role === 'LANDLORD'
+        ? 'SELECT id, full_name, email, phone FROM landlords WHERE id = :id'
+        : 'SELECT id, full_name, email, phone FROM tenants WHERE id = :id';
+    const rows = await this.db.query<any>(selectSql, { id: user.id });
     const u = rows[0];
     return u ? { id: u.ID, fullName: u.FULL_NAME, email: u.EMAIL, phone: u.PHONE, role: user.role } : null;
-=======
-    const token = await this.jwt.signAsync({ sub: id, role: dto.role });
-    return { token, user: { id, fullName: dto.fullName, email: dto.email, role: dto.role } };
-  }
-
-  async login(dto: LoginDto) {
-    const rows = await this.db.query<any>(
-      'SELECT user_id, full_name, email, password_hash, role FROM users WHERE UPPER(email) = UPPER(:email)',
-      { email: dto.email },
-    );
-    const user = rows[0];
-    if (!user || !verifyPassword(dto.password, user.PASSWORD_HASH)) {
-      throw new UnauthorizedException('Неверный email или пароль');
-    }
-    const token = await this.jwt.signAsync({ sub: user.USER_ID, role: user.ROLE });
-    return {
-      token,
-      user: { id: user.USER_ID, fullName: user.FULL_NAME, email: user.EMAIL, role: user.ROLE },
-    };
-  }
-
-  async me(id: number) {
-    const rows = await this.db.query<any>(
-      'SELECT user_id, full_name, email, phone, role FROM users WHERE user_id = :id',
-      { id },
-    );
-    const u = rows[0];
-    return u ? { id: u.USER_ID, fullName: u.FULL_NAME, email: u.EMAIL, phone: u.PHONE, role: u.ROLE } : null;
->>>>>>> Stashed changes
   }
 }
 
@@ -281,11 +210,7 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   me(@CurrentUser() user: AuthUser) {
-<<<<<<< Updated upstream
     return this.service.me(user);
-=======
-    return this.service.me(user.id);
->>>>>>> Stashed changes
   }
 }
 

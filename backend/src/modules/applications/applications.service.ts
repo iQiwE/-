@@ -6,10 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { addMonths, startOfToday } from '../../common/utils/date.utils';
-<<<<<<< Updated upstream
 import { AuthUser } from '../../common/types/auth-user';
-=======
->>>>>>> Stashed changes
 import { OracleService, TxConnection } from '../../database/oracle.service';
 import { ContractsRepository } from '../contracts/contracts.repository';
 import { PaymentScheduleService } from '../payments/payment-schedule.service';
@@ -37,18 +34,13 @@ export class ApplicationsService {
     private readonly schedule: PaymentScheduleService,
   ) {}
 
-<<<<<<< Updated upstream
   async submit(propertyId: number, user: AuthUser, dto: CreateApplicationDto): Promise<RentalApplication> {
-=======
-  async submit(propertyId: number, tenantId: number, dto: CreateApplicationDto): Promise<RentalApplication> {
->>>>>>> Stashed changes
     if (dto.desiredStartDate < startOfToday()) {
       throw new BadRequestException('Desired start date cannot be in the past');
     }
 
     const property = await this.properties.findById(propertyId);
     if (!property) throw new NotFoundException(`Property ${propertyId} not found`);
-<<<<<<< Updated upstream
     if (user.role === 'LANDLORD' && property.ownerId === user.id) {
       throw new ForbiddenException('Cannot apply to own property');
     }
@@ -61,15 +53,6 @@ export class ApplicationsService {
     }
 
     const id = await this.applications.create(propertyId, user.id, dto);
-=======
-    if (property.status !== 'AVAILABLE') throw new ConflictException('Property is not available for rent');
-    if (property.ownerId === tenantId) throw new ForbiddenException('Cannot apply to own property');
-    if (await this.applications.hasPending(propertyId, tenantId)) {
-      throw new ConflictException('You already have a pending application for this property');
-    }
-
-    const id = await this.applications.create(propertyId, tenantId, dto);
->>>>>>> Stashed changes
     return (await this.applications.findById(id))!;
   }
 
