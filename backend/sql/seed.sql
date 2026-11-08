@@ -49,6 +49,8 @@ CREATE TABLE properties (
   no_deposit    NUMBER(1)     DEFAULT 0 NOT NULL CHECK (no_deposit   IN (0, 1)),
   from_owner    NUMBER(1)     DEFAULT 1 NOT NULL CHECK (from_owner   IN (0, 1)),
   image_url     VARCHAR2(1000),
+  latitude      NUMBER(9,6),
+  longitude     NUMBER(9,6),
   status        VARCHAR2(20)  DEFAULT 'AVAILABLE' NOT NULL
                 CHECK (status IN ('AVAILABLE', 'RENTED', 'INACTIVE')),
   created_at    TIMESTAMP     DEFAULT SYSTIMESTAMP NOT NULL

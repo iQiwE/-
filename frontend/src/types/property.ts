@@ -12,6 +12,8 @@ export interface Property {
   noDeposit: boolean;
   fromOwner: boolean;
   image_url?: string | null;
+  latitude?: number;
+  longitude?: number;
   districtAvgPrice?: number;
   is_good_price: boolean;
   status: PropertyStatus;

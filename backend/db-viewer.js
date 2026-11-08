@@ -103,6 +103,8 @@ async function main() {
       ROOMS: p.ROOMS,
       AREA: p.AREA,
       MONTHLY_PRICE: p.MONTHLY_PRICE,
+      LATITUDE: p.LATITUDE ?? p.LAT ?? null,
+      LONGITUDE: p.LONGITUDE ?? p.LNG ?? null,
       PETS_ALLOWED: p.PETS_ALLOWED,
       NO_DEPOSIT: p.NO_DEPOSIT,
       FROM_OWNER: p.FROM_OWNER,

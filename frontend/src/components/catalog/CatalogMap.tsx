@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import Supercluster, { PointFeature } from 'supercluster';
-import { formatAddress, formatPrice } from '@/lib/format';
+import { FALLBACK_UNSPLASH_URLS, formatAddress, formatPrice, resolvePropertyImageUrl } from '@/lib/format';
 import { Property } from '@/types/property';
 
 interface Props {
@@ -24,7 +24,7 @@ const DEFAULT_ZOOM = 12;
 function createClusterIcon(count: number) {
   const size = count < 5 ? 38 : count < 10 ? 44 : 50;
   return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:#B85D3B;color:#FAF6F0;font-weight:700;font-size:14px;border:3px solid #F5E6DF;box-shadow:0 4px 12px rgba(44,34,30,0.25);">${count}</div>`,
+    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:var(--accent-primary, #B85D3B);color:#141312;font-weight:700;font-size:14px;border:3px solid var(--bg-primary, #FAF6F0);box-shadow:0 6px 16px rgba(0,0,0,0.35);">${count}</div>`,
     className: 'property-cluster-marker',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
@@ -34,7 +34,7 @@ function createClusterIcon(count: number) {
 function createPinIcon(price: number) {
   const label = `${Math.round(price / 1000)}k ₸`;
   return L.divIcon({
-    html: `<div style="padding:3px 9px;border-radius:9999px;background:#FAF6F0;color:#2C221E;font-weight:700;font-size:12px;border:2px solid #B85D3B;white-space:nowrap;box-shadow:0 2px 8px rgba(44,34,30,0.18);">${label}</div>`,
+    html: `<div style="padding:3px 9px;border-radius:9999px;background:var(--bg-card, #FAF6F0);color:var(--text-primary, #2C221E);font-weight:700;font-size:12px;border:2px solid var(--accent-primary, #B85D3B);white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,0.28);">${label}</div>`,
     className: 'property-pin-marker',
     iconSize: [64, 26],
     iconAnchor: [32, 13],
@@ -123,24 +123,40 @@ function ClusteredMarkers({ properties }: Props) {
             icon={createPinIcon(property.monthlyPrice)}
           >
             <Popup>
-              <div className="flex min-w-[210px] flex-col gap-1.5 text-sm">
-                <span className="text-xs font-medium text-[#9E4B2D]">
-                  {property.type.name} · {property.rooms}-комн. · {property.area} м²
-                </span>
-                <p className="font-serif font-semibold text-[#2C221E]">{property.title}</p>
-                <p className="text-xs text-[#6B5B50]">
-                  {property.address.city}, {property.address.district}, {formatAddress(property.address)}
-                </p>
-                <p className="text-base font-bold text-[#B85D3B]">
-                  {formatPrice(property.monthlyPrice)}{' '}
-                  <span className="text-xs font-normal text-[#7A6A5E]">/ мес.</span>
-                </p>
-                <Link
-                  href={`/properties/${property.id}`}
-                  className="mt-1 inline-block rounded-lg bg-[#B85D3B] px-3 py-1.5 text-center text-xs font-medium !text-white hover:bg-[#9E4B2D]"
-                >
-                  Открыть карточку →
-                </Link>
+              <div className="flex w-64 max-w-xs flex-col overflow-hidden bg-white text-sm text-[#2C221E] dark:bg-[#1D1B19] dark:text-[#F5F3EF]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={resolvePropertyImageUrl(property.image_url, property.id)}
+                  alt={property.title}
+                  className="h-36 w-full rounded-t-lg object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (target.src !== FALLBACK_UNSPLASH_URLS[0]) {
+                      target.src = FALLBACK_UNSPLASH_URLS[0];
+                    }
+                  }}
+                />
+                <div className="flex flex-col gap-1.5 p-3.5">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-[#9E4B2D] dark:text-[#D4B89C]">
+                    {property.type.name} · {property.rooms}-комн. · {property.area} м²
+                  </span>
+                  <p className="font-serif text-base font-medium leading-snug text-[#2C221E] dark:text-[#F5F3EF]">
+                    {property.title}
+                  </p>
+                  <p className="text-xs text-[#6B5B50] dark:text-[#A8A096]">
+                    {property.address.city}, {property.address.district}, {formatAddress(property.address)}
+                  </p>
+                  <p className="text-base font-bold text-[#B85D3B] dark:text-[#D4B89C]">
+                    {formatPrice(property.monthlyPrice)}{' '}
+                    <span className="text-xs font-normal text-[#7A6A5E] dark:text-[#8C8278]">/ мес.</span>
+                  </p>
+                  <Link
+                    href={`/properties/${property.id}`}
+                    className="mt-1 inline-block rounded-full bg-[#B85D3B] px-3.5 py-2 text-center text-xs font-semibold uppercase tracking-wider !text-white transition hover:bg-[#9E4B2D] dark:bg-[#B89778] dark:!text-[#141312] dark:hover:bg-[#CAB094]"
+                  >
+                    Открыть карточку →
+                  </Link>
+                </div>
               </div>
             </Popup>
           </Marker>
@@ -152,13 +168,15 @@ function ClusteredMarkers({ properties }: Props) {
 
 export default function CatalogMap({ properties }: Props) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#E8DFD3] bg-[#FAF6F0] shadow-[0_4px_24px_rgba(44,34,30,0.04)]">
-      <div className="flex items-center justify-between border-b border-[#E8DFD3] bg-[#FAF6F0] px-5 py-3 text-xs text-[#6B5B50]">
-        <span className="font-semibold text-[#2C221E]">Интерактивная карта объектов (ВКО)</span>
+    <div className="overflow-hidden rounded-2xl border border-[#E8DFD3] bg-[#FAF6F0] shadow-[0_4px_24px_rgba(44,34,30,0.04)] transition-colors duration-300 dark:border-white/10 dark:bg-[#1C1A18] dark:shadow-[0_12px_36px_rgba(0,0,0,0.4)]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8DFD3] bg-[#FAF6F0] px-5 py-3.5 text-xs text-[#6B5B50] dark:border-white/10 dark:bg-[#181614] dark:text-[#A8A096]">
+        <span className="font-medium uppercase tracking-wider text-[#2C221E] dark:text-[#F5F3EF]">
+          Интерактивная карта объектов (ВКО)
+        </span>
         <span>На карте: {properties.length} объ. · Отдаляйте карту для кластеризации</span>
       </div>
       <div className="h-[420px] w-full">
-        <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom className="h-full w-full z-0">
+        <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom className="z-0 h-full w-full">
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

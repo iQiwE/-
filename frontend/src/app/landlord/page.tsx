@@ -1,13 +1,23 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiGet, apiRequest } from '@/lib/api/client';
 import { propertiesApi } from '@/lib/api/properties.api';
 import { getSessionUser, getToken } from '@/lib/auth';
-import { FALLBACK_UNSPLASH_URLS, formatPrice, resolvePropertyImageUrl } from '@/lib/format';
+import { FALLBACK_UNSPLASH_URLS, formatAddress, formatPrice, resolvePropertyImageUrl } from '@/lib/format';
 import { Property } from '@/types/property';
+
+const LocationPickerMap = dynamic(() => import('@/components/landlord/LocationPickerMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-56 items-center justify-center rounded-xl border border-[#E2D6C8] bg-[#FAF6F0] text-xs text-[#6B5B50] dark:border-white/15 dark:bg-[#141312] dark:text-[#A8A096]">
+      Загрузка интерактивной карты...
+    </div>
+  ),
+});
 
 interface ApplicationItem {
   id: number;
@@ -23,7 +33,7 @@ interface ApplicationItem {
 const LANDLORD_PAGE_SIZE = 5;
 
 const inputCls =
-  'rounded-xl border border-[#E2D6C8] bg-[#FAF6F0]/60 px-3.5 py-2.5 text-sm font-normal text-[#2C221E] transition focus:border-[#B85D3B] focus:bg-white focus:outline-none';
+  'w-full rounded-xl border border-[#E2D6C8] bg-[#FAF6F0]/70 px-3.5 py-2.5 text-sm font-normal text-[#2C221E] transition focus:border-[#B85D3B] focus:bg-white focus:outline-none dark:border-white/12 dark:bg-[#141312] dark:text-[#F5F3EF] dark:placeholder-[#7A7067] dark:focus:border-[#B89778] dark:focus:bg-[#181614]';
 
 export default function LandlordDashboardPage() {
   const router = useRouter();
@@ -33,11 +43,14 @@ export default function LandlordDashboardPage() {
   const [propPage, setPropPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'RENTED' | 'INACTIVE'>('ALL');
   const [districtFilter, setDistrictFilter] = useState<string>('ALL');
-  const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc' | 'status_avail' | 'status_rented'>('newest');
+  const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc' | 'status_avail' | 'status_rented'>(
+    'newest',
+  );
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [editingPropertyId, setEditingPropertyId] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [city, setCity] = useState('Усть-Каменогорск');
   const [district, setDistrict] = useState('Ульбинский');
@@ -46,6 +59,8 @@ export default function LandlordDashboardPage() {
   const [rooms, setRooms] = useState(2);
   const [area, setArea] = useState(54);
   const [monthlyPrice, setMonthlyPrice] = useState(180000);
+  const [latitude, setLatitude] = useState<number>(49.953);
+  const [longitude, setLongitude] = useState<number>(82.618);
   const [petsAllowed, setPetsAllowed] = useState(false);
   const [noDeposit, setNoDeposit] = useState(false);
   const [fromOwner, setFromOwner] = useState(true);
@@ -55,6 +70,7 @@ export default function LandlordDashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPropertyId, setUploadingPropertyId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const loadData = useCallback(async (jwt: string) => {
     try {
@@ -122,21 +138,64 @@ export default function LandlordDashboardPage() {
     }
   }
 
+  function startEditingProperty(prop: Property) {
+    setEditingPropertyId(prop.id);
+    setTitle(prop.title);
+    setCity(prop.address.city);
+    setDistrict(prop.address.district);
+    setStreet(prop.address.street);
+    setBuilding(prop.address.building);
+    setRooms(prop.rooms);
+    setArea(prop.area);
+    setMonthlyPrice(prop.monthlyPrice);
+    setLatitude(Number((prop.latitude ?? prop.address.lat ?? 49.953).toFixed(6)));
+    setLongitude(Number((prop.longitude ?? prop.address.lng ?? 82.618).toFixed(6)));
+    setPetsAllowed(prop.petsAllowed);
+    setNoDeposit(prop.noDeposit);
+    setFromOwner(prop.fromOwner);
+    clearSelectedFile();
+    setNotice(null);
+    setError(null);
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function cancelEditingProperty() {
+    setEditingPropertyId(null);
+    setTitle('');
+    setCity('Усть-Каменогорск');
+    setDistrict('Ульбинский');
+    setStreet('');
+    setBuilding('');
+    setRooms(2);
+    setArea(54);
+    setMonthlyPrice(180000);
+    setLatitude(49.953);
+    setLongitude(82.618);
+    setPetsAllowed(false);
+    setNoDeposit(false);
+    setFromOwner(true);
+    clearSelectedFile();
+  }
+
   if (accessState === 'CHECKING') {
-    return <main className="mx-auto max-w-6xl px-6 py-14 text-sm text-[#6B5B50]">Проверка прав доступа...</main>;
+    return (
+      <main className="mx-auto max-w-7xl px-6 py-16 text-sm text-[#6B5B50] dark:text-[#A8A096]">
+        Проверка прав доступа...
+      </main>
+    );
   }
 
   if (accessState === 'FORBIDDEN') {
     return (
       <main className="mx-auto max-w-xl px-6 py-20 text-center">
-        <div className="rounded-2xl border border-[#ECE2D6] bg-white p-8 text-[#9E3B24] shadow-[0_4px_24px_rgba(44,34,30,0.05)]">
-          <h1 className="font-serif text-xl font-bold text-[#2C221E]">403 — Доступ запрещён</h1>
-          <p className="mt-2 text-sm text-[#6B5B50]">
+        <div className="rounded-2xl border border-[#ECE2D6] bg-white p-8 text-[#9E3B24] shadow-[0_4px_24px_rgba(44,34,30,0.05)] dark:border-white/10 dark:bg-[#1C1A18] dark:text-[#F29B88]">
+          <h1 className="font-serif text-2xl font-normal text-[#2C221E] dark:text-[#F5F3EF]">403 — Доступ запрещён</h1>
+          <p className="mt-2 text-sm text-[#6B5B50] dark:text-[#A8A096]">
             Кабинет арендодателя доступен только пользователям с ролью LANDLORD.
           </p>
           <Link
             href="/catalog"
-            className="mt-5 inline-block rounded-xl bg-[#B85D3B] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#9E4B2D]"
+            className="mt-5 inline-block rounded-full bg-[#B85D3B] px-6 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#9E4B2D] dark:bg-[#B89778] dark:text-[#141312] dark:hover:bg-[#CAB094]"
           >
             Перейти в каталог
           </Link>
@@ -145,47 +204,68 @@ export default function LandlordDashboardPage() {
     );
   }
 
-  async function handleCreateProperty(e: FormEvent) {
+  async function handleSubmitProperty(e: FormEvent) {
     e.preventDefault();
     if (!token) return;
     setError(null);
     setNotice(null);
     setSubmitting(true);
+
+    const payload = {
+      title,
+      typeId: 1,
+      rooms: Number(rooms),
+      area: Number(area),
+      monthlyPrice: Number(monthlyPrice),
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+      petsAllowed,
+      noDeposit,
+      fromOwner,
+      address: {
+        city,
+        district,
+        street,
+        building,
+        lat: Number(latitude),
+        lng: Number(longitude),
+      },
+    };
+
     try {
-      const created = await apiRequest<Property>(
-        'POST',
-        '/properties',
-        {
-          title,
-          typeId: 1,
-          rooms: Number(rooms),
-          area: Number(area),
-          monthlyPrice: Number(monthlyPrice),
-          petsAllowed,
-          noDeposit,
-          fromOwner,
-          address: { city, district, street, building },
-        },
-        token,
-      );
+      if (editingPropertyId !== null) {
+        const updated = await apiRequest<Property>(
+          'PUT',
+          `/properties/${editingPropertyId}`,
+          payload,
+          token,
+        );
+        if (selectedFile && updated?.id) {
+          await propertiesApi.uploadPropertyImage(updated.id, selectedFile, token);
+        }
+        setNotice(`Объект #${editingPropertyId} и его геокоординаты успешно обновлены.`);
+        cancelEditingProperty();
+      } else {
+        const created = await apiRequest<Property>('POST', '/properties', payload, token);
 
-      if (selectedFile && created?.id) {
-        await propertiesApi.uploadPropertyImage(created.id, selectedFile, token);
+        if (selectedFile && created?.id) {
+          await propertiesApi.uploadPropertyImage(created.id, selectedFile, token);
+        }
+
+        setTitle('');
+        setStreet('');
+        setBuilding('');
+        clearSelectedFile();
+        setPropPage(1);
+        setNotice(
+          selectedFile
+            ? 'Объявление, геопозиция и собственная фотография успешно опубликованы.'
+            : 'Объявление с выбранной геопозицией на карте опубликовано.',
+        );
       }
-
-      setTitle('');
-      setStreet('');
-      setBuilding('');
-      clearSelectedFile();
-      setPropPage(1);
-      setNotice(
-        selectedFile
-          ? 'Объявление и собственная фотография успешно опубликованы.'
-          : 'Объявление опубликовано.',
-      );
       await loadData(token);
     } catch (e: any) {
-      setError(e.message ?? 'Не удалось создать объявление');
+      setError(e.message ?? 'Не удалось сохранить объявление');
     } finally {
       setSubmitting(false);
     }
@@ -241,11 +321,33 @@ export default function LandlordDashboardPage() {
     if (!token) return;
     setError(null);
     try {
-      await apiRequest('DELETE', `/properties/${id}`, undefined, token);
+      await apiRequest('PATCH', `/properties/${id}/deactivate`, undefined, token);
       setNotice(`Объект #${id} снят с публикации (статус INACTIVE).`);
       await loadData(token);
     } catch (e: any) {
       setError(e.message ?? 'Не удалось снять объект с публикации');
+    }
+  }
+
+  async function handleDeleteProperty(prop: Property) {
+    if (!token) return;
+    const confirmed = window.confirm(
+      `Вы действительно хотите безвозвратно удалить объект «${prop.title}» (#${prop.id})?\n\nВсе связанные с ним заявки и записи в избранном также будут удалены из базы данных.`,
+    );
+    if (!confirmed) return;
+
+    setError(null);
+    setNotice(null);
+    try {
+      await apiRequest('DELETE', `/properties/${prop.id}`, undefined, token);
+      setProperties((prev) => prev.filter((item) => item.id !== prop.id));
+      setApplications((prev) => prev.filter((app) => app.propertyId !== prop.id));
+      if (editingPropertyId === prop.id) {
+        cancelEditingProperty();
+      }
+      setNotice(`Объект #${prop.id} («${prop.title}») полностью удалён из базы данных.`);
+    } catch (e: any) {
+      setError(e.message ?? 'Не удалось удалить объект');
     }
   }
 
@@ -279,52 +381,75 @@ export default function LandlordDashboardPage() {
 
   return (
     <main className="flex flex-col">
-      {/* Секция 1 (Кремовый фон): Заголовок и входящие заявки */}
-      <section className="bg-[#FAF6F0] py-12">
-        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 lg:px-8">
-          <header className="flex flex-wrap items-center justify-between gap-4">
+      {/* Секция 1: Заголовок и входящие заявки */}
+      <section className="bg-[#FAF6F0] py-14 transition-colors duration-300 dark:bg-[#141312]">
+        <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 lg:px-8">
+          <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[#E8DFD3] pb-6 dark:border-white/10">
             <div>
-              <h1 className="font-serif text-3xl font-semibold text-[#2C221E]">Кабинет арендодателя</h1>
-              <p className="mt-1 text-sm text-[#6B5B50]">
-                Управление объектами недвижимости, фотографиями, заявками арендаторов и статусами публикации
+              <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#B85D3B] dark:text-[#B89778]">
+                Панель собственника
+              </span>
+              <h1 className="mt-2 font-serif text-3xl font-normal text-[#2C221E] sm:text-4xl dark:text-[#F5F3EF]">
+                Кабинет <span className="italic text-[#B85D3B] dark:text-[#B89778]">арендодателя</span>
+              </h1>
+              <p className="mt-1.5 text-sm text-[#6B5B50] dark:text-[#A8A096]">
+                Управление резиденциями, геопозицией на карте, фотографиями и заявками арендаторов
               </p>
             </div>
-            <Link href="/catalog" className="text-sm font-medium text-[#B85D3B] hover:underline">
+            <Link
+              href="/catalog"
+              className="shrink-0 text-xs font-medium uppercase tracking-[0.16em] text-[#B85D3B] hover:underline dark:text-[#D4B89C]"
+            >
               В каталог →
             </Link>
           </header>
 
-          {notice && <div className="rounded-2xl bg-[#F5E6DF] p-4 text-sm text-[#7A3821]">{notice}</div>}
-          {error && <div className="rounded-2xl bg-[#FDF2EE] p-4 text-sm text-[#9E3B24]">{error}</div>}
+          {notice && (
+            <div className="rounded-2xl border border-[#E8CFC4] bg-[#F5E6DF] p-4 text-sm text-[#7A3821] dark:border-[#B89778]/35 dark:bg-[#B89778]/15 dark:text-[#D4B89C]">
+              {notice}
+            </div>
+          )}
+          {error && (
+            <div className="rounded-2xl border border-[#E8C5B8] bg-[#FDF2EE] p-4 text-sm text-[#9E3B24] dark:border-[#E06C53]/30 dark:bg-[#2A1916] dark:text-[#F29B88]">
+              {error}
+            </div>
+          )}
 
-          <div className="rounded-2xl border border-[#ECE2D6] bg-white p-7 shadow-[0_4px_24px_rgba(44,34,30,0.05)]">
-            <h2 className="font-serif text-xl font-semibold text-[#2C221E]">Входящие заявки на аренду</h2>
+          <div className="rounded-2xl border border-[#ECE2D6] bg-white p-7 shadow-[0_4px_24px_rgba(44,34,30,0.05)] transition-colors duration-300 dark:border-white/10 dark:bg-[#1C1A18] dark:shadow-[0_12px_36px_rgba(0,0,0,0.4)]">
+            <h2 className="font-serif text-2xl font-normal text-[#2C221E] dark:text-[#F5F3EF]">
+              Входящие <span className="italic text-[#B85D3B] dark:text-[#B89778]">заявки</span> на аренду
+            </h2>
             {applications.length === 0 ? (
-              <p className="mt-2 text-sm text-[#6B5B50]">Заявок пока нет.</p>
+              <p className="mt-2 text-sm text-[#6B5B50] dark:text-[#A8A096]">Заявок пока нет.</p>
             ) : (
-              <div className="mt-4 divide-y divide-[#F0E7DC]">
+              <div className="mt-4 divide-y divide-[#F0E7DC] dark:divide-white/10">
                 {applications.map((a) => (
-                  <div key={a.id} className="flex flex-wrap items-center justify-between gap-4 py-3.5 text-sm">
-                    <div>
-                      <p className="font-medium text-[#2C221E]">
+                  <div
+                    key={a.id}
+                    className="flex flex-col justify-between gap-4 py-4 text-sm sm:flex-row sm:items-center"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-[#2C221E] dark:text-[#F5F3EF]" title={a.propertyTitle}>
                         #{a.id} · {a.propertyTitle}
                       </p>
-                      <p className="mt-0.5 text-[#6B5B50]">
+                      <p className="mt-0.5 text-xs text-[#6B5B50] dark:text-[#A8A096]">
                         Арендатор: {a.tenantName} · Срок: {a.leaseMonths} мес. · Статус:{' '}
-                        <b className="text-[#2C221E]">{a.status}</b>
+                        <b className="text-[#2C221E] dark:text-[#D4B89C]">{a.status}</b>
                       </p>
                     </div>
                     {a.status === 'PENDING' && (
-                      <div className="flex gap-2">
+                      <div className="flex shrink-0 min-w-max items-center gap-2">
                         <button
+                          type="button"
                           onClick={() => handleApprove(a.id)}
-                          className="rounded-xl bg-[#4D724D] px-3.5 py-2 text-xs font-medium text-white transition hover:bg-[#3B593B]"
+                          className="rounded-full bg-[#4D724D] px-4 py-2 text-xs font-medium text-white transition hover:bg-[#3B593B]"
                         >
                           Одобрить
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleReject(a.id)}
-                          className="rounded-xl bg-[#9E3B24] px-3.5 py-2 text-xs font-medium text-white transition hover:bg-[#822E1A]"
+                          className="rounded-full bg-[#9E3B24] px-4 py-2 text-xs font-medium text-white transition hover:bg-[#822E1A]"
                         >
                           Отклонить
                         </button>
@@ -338,16 +463,39 @@ export default function LandlordDashboardPage() {
         </div>
       </section>
 
-      {/* Секция 2 (Белый фон для чередования): Создание и список объектов */}
-      <section className="border-t border-[#ECE3D8] bg-white py-14">
-        <div className="mx-auto grid max-w-6xl gap-8 px-6 md:grid-cols-[1fr_1.35fr] lg:px-8">
+      {/* Секция 2: Создание/редактирование с интерактивной картой и список объектов */}
+      <section className="border-t border-[#ECE3D8] bg-white py-14 transition-colors duration-300 dark:border-white/10 dark:bg-[#181614]">
+        <div className="mx-auto flex w-full max-w-7xl flex-col items-center justify-center gap-8 px-6 lg:flex-row lg:items-start lg:px-8">
           <form
-            onSubmit={handleCreateProperty}
-            className="flex flex-col gap-4 rounded-2xl border border-[#ECE2D6] bg-[#FAF6F0]/60 p-7 shadow-[0_4px_24px_rgba(44,34,30,0.04)]"
+            ref={formRef}
+            onSubmit={handleSubmitProperty}
+            className="flex w-full shrink-0 scroll-mt-24 flex-col gap-4 rounded-2xl border border-[#ECE2D6] bg-[#FAF6F0]/60 p-7 shadow-[0_4px_24px_rgba(44,34,30,0.04)] lg:w-[410px] xl:w-[440px] dark:border-white/10 dark:bg-[#1C1A18] dark:shadow-[0_12px_36px_rgba(0,0,0,0.4)]"
           >
-            <h2 className="font-serif text-xl font-semibold text-[#2C221E]">Добавить объявление</h2>
+            <div className="flex min-h-[36px] items-center justify-between gap-2">
+              <h2 className="font-serif text-2xl font-normal leading-tight text-[#2C221E] dark:text-[#F5F3EF]">
+                {editingPropertyId !== null ? (
+                  <>
+                    Редактировать{' '}
+                    <span className="italic text-[#B85D3B] dark:text-[#B89778]">объект #{editingPropertyId}</span>
+                  </>
+                ) : (
+                  <>
+                    Добавить <span className="italic text-[#B85D3B] dark:text-[#B89778]">объявление</span>
+                  </>
+                )}
+              </h2>
+              {editingPropertyId !== null && (
+                <button
+                  type="button"
+                  onClick={cancelEditingProperty}
+                  className="shrink-0 rounded-full border border-[#DFD3C3] bg-white px-3 py-1 text-xs font-medium text-[#5C4D44] transition hover:border-[#B85D3B] dark:border-white/15 dark:bg-[#25221F] dark:text-[#E5E0D8]"
+                >
+                  Отмена
+                </button>
+              )}
+            </div>
 
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
+            <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
               Заголовок объявления
               <input
                 required
@@ -359,7 +507,7 @@ export default function LandlordDashboardPage() {
             </label>
 
             <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
+              <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
                 Город (ВКО)
                 <input
                   required
@@ -370,7 +518,7 @@ export default function LandlordDashboardPage() {
                 />
               </label>
 
-              <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
+              <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
                 Район
                 <input
                   required
@@ -383,7 +531,7 @@ export default function LandlordDashboardPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
+              <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
                 Улица / Проспект
                 <input
                   required
@@ -394,7 +542,7 @@ export default function LandlordDashboardPage() {
                 />
               </label>
 
-              <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
+              <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
                 Дом
                 <input
                   required
@@ -407,7 +555,7 @@ export default function LandlordDashboardPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
+              <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
                 Комнат
                 <input
                   type="number"
@@ -420,7 +568,7 @@ export default function LandlordDashboardPage() {
                 />
               </label>
 
-              <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
+              <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
                 Площадь, м²
                 <input
                   type="number"
@@ -433,8 +581,8 @@ export default function LandlordDashboardPage() {
                 />
               </label>
 
-              <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
-                Цена в месяц, ₸
+              <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
+                Цена, ₸
                 <input
                   type="number"
                   min={1000}
@@ -447,31 +595,111 @@ export default function LandlordDashboardPage() {
               </label>
             </div>
 
+            {/* Интерактивный выбор геопозиции на карте + поля координат */}
+            <div className="flex flex-col gap-2.5 pt-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
+                  Геопозиция на карте
+                </span>
+                <div className="flex flex-wrap gap-1.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLatitude(49.953);
+                      setLongitude(82.618);
+                    }}
+                    className="rounded-full border border-[#DFD3C3] bg-white px-2.5 py-0.5 text-[#5C4D44] transition hover:border-[#B85D3B] dark:border-white/15 dark:bg-[#25221F] dark:text-[#C7BFB5]"
+                  >
+                    Центр УК
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLatitude(49.9235);
+                      setLongitude(82.6515);
+                    }}
+                    className="rounded-full border border-[#DFD3C3] bg-white px-2.5 py-0.5 text-[#5C4D44] transition hover:border-[#B85D3B] dark:border-white/15 dark:bg-[#25221F] dark:text-[#C7BFB5]"
+                  >
+                    КШТ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLatitude(50.3441);
+                      setLongitude(83.5129);
+                    }}
+                    className="rounded-full border border-[#DFD3C3] bg-white px-2.5 py-0.5 text-[#5C4D44] transition hover:border-[#B85D3B] dark:border-white/15 dark:bg-[#25221F] dark:text-[#C7BFB5]"
+                  >
+                    Риддер
+                  </button>
+                </div>
+              </div>
+
+              <LocationPickerMap
+                latitude={latitude}
+                longitude={longitude}
+                onChange={(lat, lng) => {
+                  setLatitude(lat);
+                  setLongitude(lng);
+                }}
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1 text-[11px] font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
+                  Широта (Latitude)
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min={-90}
+                    max={90}
+                    required
+                    value={latitude}
+                    onChange={(e) => setLatitude(Number(e.target.value))}
+                    className={inputCls}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1 text-[11px] font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
+                  Долгота (Longitude)
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min={-180}
+                    max={180}
+                    required
+                    value={longitude}
+                    onChange={(e) => setLongitude(Number(e.target.value))}
+                    className={inputCls}
+                  />
+                </label>
+              </div>
+            </div>
+
             {/* Поле загрузки фотографии квартиры с превью */}
-            <div className="flex flex-col gap-2 text-sm font-medium text-[#3D302A]">
+            <div className="flex flex-col gap-2 text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
               <span>Фотография квартиры (необязательно)</span>
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={handleFileChange}
-                className="block w-full cursor-pointer rounded-xl border border-dashed border-[#D6C5B3] bg-white px-3.5 py-2.5 text-xs text-[#5C4D44] file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-[#F5E6DF] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#9E4B2D] hover:border-[#B85D3B]"
+                className="block w-full cursor-pointer rounded-xl border border-dashed border-[#D6C5B3] bg-white px-3.5 py-2.5 text-xs font-normal normal-case tracking-normal text-[#5C4D44] file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-[#F5E6DF] file:px-3.5 file:py-1.5 file:text-xs file:font-semibold file:text-[#9E4B2D] hover:border-[#B85D3B] dark:border-white/20 dark:bg-[#141312] dark:text-[#A8A096] dark:file:bg-[#B89778]/20 dark:file:text-[#D4B89C] dark:hover:border-[#B89778]"
               />
 
               {previewUrl && (
-                <div className="relative mt-1 overflow-hidden rounded-xl border border-[#E2D6C8] bg-white p-2">
+                <div className="relative mt-1 overflow-hidden rounded-xl border border-[#E2D6C8] bg-white p-2 dark:border-white/15 dark:bg-[#141312]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={previewUrl}
                     alt="Превью выбранного фото"
                     className="h-40 w-full rounded-lg object-cover"
                   />
-                  <div className="mt-2 flex items-center justify-between px-1 text-xs text-[#6B5B50]">
+                  <div className="mt-2 flex items-center justify-between px-1 text-xs normal-case tracking-normal text-[#6B5B50] dark:text-[#A8A096]">
                     <span className="truncate">{selectedFile?.name}</span>
                     <button
                       type="button"
                       onClick={clearSelectedFile}
-                      className="font-medium text-[#9E3B24] hover:underline"
+                      className="shrink-0 font-medium text-[#9E3B24] hover:underline dark:text-[#F29B88]"
                     >
                       Удалить фото
                     </button>
@@ -485,7 +713,7 @@ export default function LandlordDashboardPage() {
                 className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-3.5 py-1.5 transition-all duration-200 ${
                   petsAllowed
                     ? 'border-[#4D724D] bg-[#4D724D] text-white shadow-xs ring-2 ring-[#4D724D]/25'
-                    : 'border-[#D5E0D5] bg-[#F2F6F2] text-[#3B593B] hover:border-[#B8CCB8] hover:bg-[#E6EFE6]'
+                    : 'border-[#D5E0D5] bg-[#F2F6F2] text-[#3B593B] hover:border-[#B8CCB8] hover:bg-[#E6EFE6] dark:border-white/12 dark:bg-[#23201D] dark:text-[#B8C9B8]'
                 }`}
               >
                 <input
@@ -513,8 +741,8 @@ export default function LandlordDashboardPage() {
               <label
                 className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-3.5 py-1.5 transition-all duration-200 ${
                   noDeposit
-                    ? 'border-[#B85D3B] bg-[#B85D3B] text-white shadow-xs ring-2 ring-[#B85D3B]/25'
-                    : 'border-[#E8CFC4] bg-[#FAF0EB] text-[#8E4226] hover:border-[#D9B3A3] hover:bg-[#F5E6DF]'
+                    ? 'border-[#B85D3B] bg-[#B85D3B] text-white shadow-xs ring-2 ring-[#B85D3B]/25 dark:border-[#B89778] dark:bg-[#B89778] dark:text-[#141312]'
+                    : 'border-[#E8CFC4] bg-[#FAF0EB] text-[#8E4226] hover:border-[#D9B3A3] hover:bg-[#F5E6DF] dark:border-white/12 dark:bg-[#23201D] dark:text-[#D4B89C]'
                 }`}
               >
                 <input
@@ -542,8 +770,8 @@ export default function LandlordDashboardPage() {
               <label
                 className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-3.5 py-1.5 transition-all duration-200 ${
                   fromOwner
-                    ? 'border-[#9C6B3B] bg-[#9C6B3B] text-white shadow-xs ring-2 ring-[#9C6B3B]/25'
-                    : 'border-[#E6D6C3] bg-[#FBF5ED] text-[#785027] hover:border-[#D6BFA4] hover:bg-[#F5EBDC]'
+                    ? 'border-[#9C6B3B] bg-[#9C6B3B] text-white shadow-xs ring-2 ring-[#9C6B3B]/25 dark:border-[#C5A585] dark:bg-[#C5A585] dark:text-[#141312]'
+                    : 'border-[#E6D6C3] bg-[#FBF5ED] text-[#785027] hover:border-[#D6BFA4] hover:bg-[#F5EBDC] dark:border-white/12 dark:bg-[#23201D] dark:text-[#C7B8A5]'
                 }`}
               >
                 <input
@@ -573,20 +801,26 @@ export default function LandlordDashboardPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="mt-2 rounded-xl bg-[#B85D3B] px-5 py-3 text-sm font-medium text-white shadow-xs transition hover:bg-[#9E4B2D] disabled:opacity-50"
+              className="mt-2 rounded-full bg-[#B85D3B] px-6 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-xs transition hover:bg-[#9E4B2D] disabled:opacity-50 dark:bg-[#B89778] dark:text-[#141312] dark:hover:bg-[#CAB094]"
             >
-              {submitting ? 'Публикация...' : 'Опубликовать'}
+              {submitting
+                ? 'Сохранение...'
+                : editingPropertyId !== null
+                  ? 'Сохранить изменения'
+                  : 'Опубликовать'}
             </button>
           </form>
 
-          <div className="flex flex-col justify-between rounded-2xl border border-[#ECE2D6] bg-[#FAF6F0]/60 p-7 shadow-[0_4px_24px_rgba(44,34,30,0.04)]">
-            <div>
-              <div className="flex items-center justify-between">
-                <h2 className="font-serif text-xl font-semibold text-[#2C221E]">
-                  Мои объекты ({filteredAndSortedProperties.length})
+          {/* Правая колонка: Список объектов арендодателя */}
+          <div className="flex min-w-0 w-full flex-1 flex-col justify-between rounded-2xl border border-[#ECE2D6] bg-[#FAF6F0]/60 p-7 shadow-[0_4px_24px_rgba(44,34,30,0.04)] dark:border-white/10 dark:bg-[#1C1A18] dark:shadow-[0_12px_36px_rgba(0,0,0,0.4)]">
+            <div className="min-w-0 w-full">
+              <div className="flex min-h-[36px] flex-wrap items-center justify-between gap-2">
+                <h2 className="font-serif text-2xl font-normal leading-tight text-[#2C221E] dark:text-[#F5F3EF]">
+                  Мои <span className="italic text-[#B85D3B] dark:text-[#B89778]">объекты</span> (
+                  {filteredAndSortedProperties.length})
                 </h2>
                 {filteredAndSortedProperties.length > LANDLORD_PAGE_SIZE && (
-                  <span className="text-xs text-[#6B5B50]">
+                  <span className="shrink-0 text-xs text-[#6B5B50] dark:text-[#A8A096]">
                     Показано {(safePropPage - 1) * LANDLORD_PAGE_SIZE + 1}–
                     {Math.min(safePropPage * LANDLORD_PAGE_SIZE, filteredAndSortedProperties.length)} из{' '}
                     {filteredAndSortedProperties.length}
@@ -595,7 +829,7 @@ export default function LandlordDashboardPage() {
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <label className="flex flex-col gap-1 text-xs font-medium text-[#5C4D44]">
+                <label className="flex flex-col gap-1 text-[11px] font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
                   Статус
                   <select
                     value={statusFilter}
@@ -603,7 +837,7 @@ export default function LandlordDashboardPage() {
                       setStatusFilter(e.target.value as any);
                       setPropPage(1);
                     }}
-                    className="rounded-xl border border-[#E2D6C8] bg-white px-3 py-2 text-xs font-normal text-[#2C221E]"
+                    className="rounded-xl border border-[#E2D6C8] bg-white px-3 py-2 text-xs font-normal normal-case tracking-normal text-[#2C221E] dark:border-white/12 dark:bg-[#141312] dark:text-[#F5F3EF]"
                   >
                     <option value="ALL">Все статусы</option>
                     <option value="AVAILABLE">AVAILABLE (Свободно)</option>
@@ -612,7 +846,7 @@ export default function LandlordDashboardPage() {
                   </select>
                 </label>
 
-                <label className="flex flex-col gap-1 text-xs font-medium text-[#5C4D44]">
+                <label className="flex flex-col gap-1 text-[11px] font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
                   Район
                   <select
                     value={districtFilter}
@@ -620,7 +854,7 @@ export default function LandlordDashboardPage() {
                       setDistrictFilter(e.target.value);
                       setPropPage(1);
                     }}
-                    className="rounded-xl border border-[#E2D6C8] bg-white px-3 py-2 text-xs font-normal text-[#2C221E]"
+                    className="rounded-xl border border-[#E2D6C8] bg-white px-3 py-2 text-xs font-normal normal-case tracking-normal text-[#2C221E] dark:border-white/12 dark:bg-[#141312] dark:text-[#F5F3EF]"
                   >
                     <option value="ALL">Все районы</option>
                     {uniqueDistricts.map((d) => (
@@ -631,7 +865,7 @@ export default function LandlordDashboardPage() {
                   </select>
                 </label>
 
-                <label className="flex flex-col gap-1 text-xs font-medium text-[#5C4D44]">
+                <label className="flex flex-col gap-1 text-[11px] font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
                   Сортировка
                   <select
                     value={sortBy}
@@ -639,7 +873,7 @@ export default function LandlordDashboardPage() {
                       setSortBy(e.target.value as any);
                       setPropPage(1);
                     }}
-                    className="rounded-xl border border-[#E2D6C8] bg-white px-3 py-2 text-xs font-normal text-[#2C221E]"
+                    className="rounded-xl border border-[#E2D6C8] bg-white px-3 py-2 text-xs font-normal normal-case tracking-normal text-[#2C221E] dark:border-white/12 dark:bg-[#141312] dark:text-[#F5F3EF]"
                   >
                     <option value="newest">Сначала новые</option>
                     <option value="price_asc">Цена: по возрастанию</option>
@@ -650,39 +884,94 @@ export default function LandlordDashboardPage() {
                 </label>
               </div>
 
-              <div className="mt-4 divide-y divide-[#EAE0D5] text-sm">
+              {/* Список карточек объектов арендодателя */}
+              <div className="mt-5 flex flex-col gap-3.5 text-sm">
                 {filteredAndSortedProperties.length === 0 ? (
-                  <p className="py-10 text-center text-sm text-[#6B5B50]">Объектов по выбранным фильтрам нет.</p>
+                  <p className="py-10 text-center text-sm text-[#6B5B50] dark:text-[#A8A096]">
+                    Объектов по выбранным фильтрам нет.
+                  </p>
                 ) : (
                   filteredAndSortedProperties
                     .slice((safePropPage - 1) * LANDLORD_PAGE_SIZE, safePropPage * LANDLORD_PAGE_SIZE)
                     .map((p) => {
                       const thumbUrl = resolvePropertyImageUrl(p.image_url, p.id);
+                      const propLat = Number(p.latitude ?? p.address.lat ?? 49.953).toFixed(4);
+                      const propLng = Number(p.longitude ?? p.address.lng ?? 82.618).toFixed(4);
                       return (
-                        <div key={p.id} className="flex items-center justify-between gap-3.5 py-3.5">
+                        <article
+                          key={p.id}
+                          className="flex flex-col gap-3.5 rounded-xl border border-[#EAE0D5] bg-white p-4 shadow-2xs transition hover:border-[#D6C5B3] sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:bg-[#141312] dark:hover:border-white/20"
+                        >
+                          {/* Зона 1 (Фото слева) + Зона 2 (Текст посередине) */}
                           <div className="flex min-w-0 flex-1 items-center gap-3.5">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={thumbUrl}
-                              alt={p.title}
-                              onError={(e) => {
-                                const target = e.currentTarget;
-                                if (target.src !== FALLBACK_UNSPLASH_URLS[0]) {
-                                  target.src = FALLBACK_UNSPLASH_URLS[0];
-                                }
-                              }}
-                              className="h-14 w-16 shrink-0 rounded-xl object-cover"
-                            />
+                            <Link
+                              href={`/properties/${p.id}`}
+                              className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#EFE6DC] sm:h-20 sm:w-20 dark:bg-[#25221F]"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={thumbUrl}
+                                alt={p.title}
+                                onError={(e) => {
+                                  const target = e.currentTarget;
+                                  if (target.src !== FALLBACK_UNSPLASH_URLS[0]) {
+                                    target.src = FALLBACK_UNSPLASH_URLS[0];
+                                  }
+                                }}
+                                className="h-full w-full rounded-xl object-cover transition duration-300 hover:scale-105"
+                              />
+                            </Link>
+
                             <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium leading-snug text-[#2C221E]">{p.title}</p>
-                              <p className="mt-0.5 text-xs text-[#6B5B50]">
-                                {p.address.city}, {p.address.district} · {formatPrice(p.monthlyPrice)}
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                <span
+                                  className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                                    p.status === 'RENTED'
+                                      ? 'bg-[#FBF5ED] text-[#785027] dark:bg-[#B89778]/20 dark:text-[#D4B89C]'
+                                      : p.status === 'AVAILABLE'
+                                        ? 'bg-[#F2F6F2] text-[#3B593B] dark:bg-[#4D724D]/25 dark:text-[#98C498]'
+                                        : 'bg-[#ECE3D8] text-[#5C4D44] dark:bg-white/10 dark:text-[#A8A096]'
+                                  }`}
+                                >
+                                  {p.status}
+                                </span>
+                                <span className="shrink-0 whitespace-nowrap text-sm font-bold text-[#B85D3B] dark:text-[#D4B89C]">
+                                  {formatPrice(p.monthlyPrice)}
+                                </span>
+                                <span className="truncate text-xs text-[#7A6A5E] dark:text-[#8C8278]">
+                                  · {p.rooms}-комн., {p.area} м²
+                                </span>
+                              </div>
+
+                              <Link
+                                href={`/properties/${p.id}`}
+                                title={p.title}
+                                className="mt-1 block truncate font-serif text-base font-medium leading-snug text-[#2C221E] transition hover:text-[#B85D3B] dark:text-[#F5F3EF] dark:hover:text-[#D4B89C]"
+                              >
+                                {p.title}
+                              </Link>
+
+                              <p
+                                className="mt-0.5 truncate text-xs text-[#6B5B50] dark:text-[#A8A096]"
+                                title={`${p.address.city}, ${p.address.district}, ${formatAddress(p.address)} · 📍 ${propLat}, ${propLng}`}
+                              >
+                                {p.address.city}, {p.address.district}, {formatAddress(p.address)} · 📍 {propLat},{' '}
+                                {propLng}
                               </p>
                             </div>
                           </div>
 
-                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 whitespace-nowrap">
-                            <label className="cursor-pointer rounded-xl border border-[#DFD3C3] bg-white px-2.5 py-1.5 text-xs font-medium text-[#5C4D44] transition hover:border-[#B85D3B]/40 hover:bg-[#FAF6F0]">
+                          {/* Зона 3 (Кнопки действий справа — защищены от сжатия shrink-0 min-w-max) */}
+                          <div className="flex shrink-0 min-w-max items-center justify-end gap-1.5 border-t border-[#F0E7DC] pt-3 sm:border-t-0 sm:pt-0 dark:border-white/10">
+                            <button
+                              type="button"
+                              onClick={() => startEditingProperty(p)}
+                              className="shrink-0 whitespace-nowrap rounded-full border border-[#DFD3C3] bg-[#FAF6F0] px-2.5 py-1.5 text-xs font-medium text-[#3D302A] transition hover:border-[#B85D3B] hover:bg-white dark:border-white/15 dark:bg-[#25221F] dark:text-[#E5E0D8] dark:hover:border-[#B89778]"
+                            >
+                              ✏️ Изменить
+                            </button>
+
+                            <label className="shrink-0 cursor-pointer whitespace-nowrap rounded-full border border-[#DFD3C3] bg-[#FAF6F0] px-2.5 py-1.5 text-xs font-medium text-[#3D302A] transition hover:border-[#B85D3B] hover:bg-white dark:border-white/15 dark:bg-[#25221F] dark:text-[#E5E0D8] dark:hover:border-[#B89778]">
                               {uploadingPropertyId === p.id ? 'Загрузка...' : '📷 Фото'}
                               <input
                                 type="file"
@@ -693,25 +982,13 @@ export default function LandlordDashboardPage() {
                               />
                             </label>
 
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                p.status === 'RENTED'
-                                  ? 'bg-[#FBF5ED] text-[#785027]'
-                                  : p.status === 'AVAILABLE'
-                                    ? 'bg-[#F2F6F2] text-[#3B593B]'
-                                    : 'bg-[#ECE3D8] text-[#5C4D44]'
-                              }`}
-                            >
-                              {p.status}
-                            </span>
-
                             {p.status === 'AVAILABLE' && (
                               <button
                                 type="button"
                                 onClick={() => handleDeactivateProperty(p.id)}
-                                className="rounded-xl border border-[#DFD3C3] bg-white px-3 py-1.5 text-xs font-medium text-[#3D302A] transition hover:bg-[#F3ECE2]"
+                                className="shrink-0 whitespace-nowrap rounded-full border border-[#DFD3C3] bg-[#FAF6F0] px-2.5 py-1.5 text-xs font-medium text-[#3D302A] transition hover:border-[#B85D3B] hover:bg-white dark:border-white/15 dark:bg-[#25221F] dark:text-[#E5E0D8] dark:hover:border-[#B89778]"
                               >
-                                Снять с публикации
+                                Снять
                               </button>
                             )}
 
@@ -719,9 +996,9 @@ export default function LandlordDashboardPage() {
                               <button
                                 type="button"
                                 onClick={() => handleActivateProperty(p.id)}
-                                className="rounded-xl bg-[#B85D3B] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#9E4B2D]"
+                                className="shrink-0 whitespace-nowrap rounded-full bg-[#B85D3B] px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-[#9E4B2D] dark:bg-[#B89778] dark:text-[#141312] dark:hover:bg-[#CAB094]"
                               >
-                                Вернуть в каталог
+                                В каталог
                               </button>
                             )}
 
@@ -729,13 +1006,22 @@ export default function LandlordDashboardPage() {
                               <button
                                 type="button"
                                 onClick={() => handleActivateProperty(p.id)}
-                                className="rounded-xl border border-[#D6BFA4] bg-[#FBF5ED] px-3 py-1.5 text-xs font-medium text-[#785027] transition hover:bg-[#F5EBDC]"
+                                className="shrink-0 whitespace-nowrap rounded-full border border-[#D6BFA4] bg-[#FBF5ED] px-2.5 py-1.5 text-xs font-medium text-[#785027] transition hover:bg-[#F5EBDC] dark:border-[#B89778]/40 dark:bg-[#B89778]/15 dark:text-[#D4B89C]"
                               >
                                 Освободить
                               </button>
                             )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteProperty(p)}
+                              title="Безвозвратно удалить объект из базы данных"
+                              className="shrink-0 whitespace-nowrap rounded-full border border-[#E5C5BC] bg-[#FDF4F1] px-2.5 py-1.5 text-xs font-medium text-[#9E3B24] transition hover:border-[#9E3B24] hover:bg-[#9E3B24] hover:text-white dark:border-[#E06C53]/30 dark:bg-[#2A1916] dark:text-[#F29B88] dark:hover:border-[#C84B31] dark:hover:bg-[#9E3B24] dark:hover:text-white"
+                            >
+                              🗑 Удалить
+                            </button>
                           </div>
-                        </div>
+                        </article>
                       );
                     })
                 )}
@@ -744,7 +1030,7 @@ export default function LandlordDashboardPage() {
 
             {filteredAndSortedProperties.length > LANDLORD_PAGE_SIZE && (
               <nav
-                className="mt-5 flex items-center justify-center gap-2 border-t border-[#EAE0D5] pt-4"
+                className="mt-5 flex items-center justify-center gap-2 border-t border-[#EAE0D5] pt-4 dark:border-white/10"
                 aria-label="Перелистывание объектов"
               >
                 <button
@@ -752,7 +1038,7 @@ export default function LandlordDashboardPage() {
                   aria-label="Предыдущая страница"
                   disabled={safePropPage <= 1}
                   onClick={() => setPropPage(Math.max(1, safePropPage - 1))}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DFD3C3] bg-white text-xs font-medium text-[#3D302A] hover:bg-[#FAF6F0] disabled:opacity-40"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-[#DFD3C3] bg-white text-xs font-medium text-[#3D302A] hover:bg-[#FAF6F0] disabled:opacity-40 dark:border-white/15 dark:bg-[#25221F] dark:text-[#E5E0D8]"
                 >
                   ←
                 </button>
@@ -763,10 +1049,10 @@ export default function LandlordDashboardPage() {
                       key={pageNum}
                       type="button"
                       onClick={() => setPropPage(pageNum)}
-                      className={`h-8 w-8 rounded-xl text-xs font-medium transition ${
+                      className={`h-8 w-8 rounded-full text-xs font-medium transition ${
                         pageNum === safePropPage
-                          ? 'bg-[#B85D3B] text-white'
-                          : 'border border-[#DFD3C3] bg-white text-[#3D302A] hover:bg-[#FAF6F0]'
+                          ? 'bg-[#B85D3B] text-white dark:bg-[#B89778] dark:text-[#141312]'
+                          : 'border border-[#DFD3C3] bg-white text-[#3D302A] hover:bg-[#FAF6F0] dark:border-white/15 dark:bg-[#25221F] dark:text-[#E5E0D8]'
                       }`}
                     >
                       {pageNum}
@@ -779,7 +1065,7 @@ export default function LandlordDashboardPage() {
                   aria-label="Следующая страница"
                   disabled={safePropPage >= totalPropPages}
                   onClick={() => setPropPage(Math.min(totalPropPages, safePropPage + 1))}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#DFD3C3] bg-white text-xs font-medium text-[#3D302A] hover:bg-[#FAF6F0] disabled:opacity-40"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-[#DFD3C3] bg-white text-xs font-medium text-[#3D302A] hover:bg-[#FAF6F0] disabled:opacity-40 dark:border-white/15 dark:bg-[#25221F] dark:text-[#E5E0D8]"
                 >
                   →
                 </button>

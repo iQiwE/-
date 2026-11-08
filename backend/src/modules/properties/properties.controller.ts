@@ -11,6 +11,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   Query,
   UploadedFile,
   UseGuards,
@@ -106,6 +107,13 @@ export class PropertiesController {
     return this.service.updateImage(id, user.id, imageUrl);
   }
 
+  @Put('properties/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('LANDLORD')
+  replace(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser, @Body() dto: UpdatePropertyDto) {
+    return this.service.update(id, user.id, dto);
+  }
+
   @Patch('properties/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('LANDLORD')
@@ -119,6 +127,13 @@ export class PropertiesController {
   @Roles('LANDLORD')
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
     return this.service.remove(id, user.id);
+  }
+
+  @Patch('properties/:id/deactivate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('LANDLORD')
+  deactivate(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
+    return this.service.deactivate(id, user.id);
   }
 
   @Patch('properties/:id/activate')

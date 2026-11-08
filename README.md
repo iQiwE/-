@@ -1,14 +1,29 @@
-# Информационная система аренды жилой недвижимости (РК, ВКО)
+# Информационная система аренды жилой недвижимости — Serenity Residence (РК, ВКО)
 
-Полнофункциональная веб-система для управления долгосрочной арендой жилой недвижимости в Восточно-Казахстанской области (Усть-Каменогорск, Риддер). Проект включает публичный интерактивный каталог с картой OpenStreetMap и кластеризацией маркеров, регистрацию и авторизацию пользователей, подачу заявок на аренду, личный кабинет арендодателя, ролевую модель доступа (RBAC) и автоматизированный расчёт договоров и графика ежемесячных платежей.
+Полнофункциональная веб-система для управления долгосрочной арендой жилой недвижимости в Восточно-Казахстанской области (Усть-Каменогорск, Риддер). Проект включает публичный интерактивный каталог с картой OpenStreetMap и кластеризацией маркеров, глобальное переключение тем (**Editorial Dark Luxury** и **Warm Earthy Light**), детальную карту объекта с попапом-превью, интерактивный выбор геопозиции на карте в кабинете арендодателя, загрузку фотографий, полное управление жизненным циклом объявлений (публикация, редактирование, снятие с публикации, каскадное удаление), ролевую модель доступа (RBAC) и автоматизированный расчёт договоров и графика ежемесячных платежей.
 
 ---
 
-## 1. Технологический стек
+## 1. Технологический стек и ключевые возможности
 
-- **База данных:** Oracle Database (с автоматическим резервным in-memory хранилищем при отсутствии локального инстанса Oracle).
-- **Backend:** NestJS 11, TypeScript, официальный драйвер `node-oracledb` (Thin Mode — не требует установки Oracle Instant Client), `@nestjs/jwt`, встроенный криптографический модуль `node:crypto` (SHA-256 + `timingSafeEqual`), `class-validator`, `class-transformer`.
-- **Frontend:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4, `leaflet` + `react-leaflet` + `supercluster` (OpenStreetMap).
+### Стек технологий
+- **База данных:** Oracle Database (с автоматическим резервным in-memory хранилищем `InMemoryOracleStore` и JSON-снапшотом при отсутствии локального инстанса Oracle).
+- **Backend:** NestJS 11, TypeScript, официальный драйвер `node-oracledb` (Thin Mode — не требует установки Oracle Instant Client), `@nestjs/jwt`, встроенный криптографический модуль `node:crypto` (SHA-256 + `timingSafeEqual`), `class-validator`, `class-transformer`, `multer` (загрузка изображений).
+- **Frontend:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4, `leaflet` + `react-leaflet` + `supercluster` (OpenStreetMap), шрифтовая пара `Cormorant Garamond` (заголовки) и `Plus Jakarta Sans` (интерфейс).
+
+### Ключевые функциональные возможности
+1. **Две глобальные темы оформления (Dark Luxury / Light Mode):**
+   - **Editorial Dark Luxury** (по умолчанию): глубокий угольно-обсидиановый фон (`#141312`), карточки оттенка эспрессо (`#1C1A18`), платиново-молочная типографика и благородные бронзово-золотые акценты (`#B89778` / `#D4B89C`).
+   - **Warm Earthy Light**: тёплый кремово-песочный фон (`#FAF6F0`) с терракотовыми акцентами (`#B85D3B`).
+   - Мгновенное переключение кнопкой в шапке сайта (`HeaderNav`) с сохранением выбора в `localStorage` и адаптацией тайлов карт Leaflet.
+2. **Интерактивные карты (OpenStreetMap + Leaflet):**
+   - **Общая карта каталога (`CatalogMap`):** кластеризация маркеров с ценами через `Supercluster`, всплывающие попапы-превью при клике на маркер.
+   - **Карта на детальной странице квартиры (`PropertyDetailMap`):** центрирование на координатах объекта (`latitude`, `longitude`), маркер с ценой и открывающийся по клику попап с миниатюрой фото, названием, ценой и характеристиками.
+   - **Интерактивный пикер координат в кабинете арендодателя (`LocationPickerMap`):** установка маркера кликом по карте, перетаскивание маркера (`draggable`), быстрые пресеты районов ВКО (Центр УК, КШТ, Риддер) и двусторонняя синхронизация с полями `latitude` и `longitude`.
+3. **Полное управление объектами в кабинете арендодателя (`/landlord`):**
+   - Создание и редактирование объявлений с координатами и загрузкой собственных фотографий (`multipart/form-data`).
+   - Смена статуса объявления: публикация в каталог (`AVAILABLE`), временное скрытие (`INACTIVE`), освобождение после аренды (`RENTED` → `AVAILABLE`).
+   - Полное каскадное удаление объекта из базы данных (`DELETE /api/v1/properties/:id`) с проверкой владельца по JWT-токену, модальным подтверждением и автоматической очисткой связанных записей (`PAYMENTS`, `CONTRACTS`, `RENTAL_APPLICATIONS`, `FAVORITES`, `PROPERTIES`, `ADDRESSES`).
 
 ---
 
@@ -16,7 +31,7 @@
 
 На машине разработчика должны быть установлены:
 - **Node.js** версии `20.x` или выше (рекомендуется `22.x` / `24.x`) и пакетный менеджер **npm**.
-- **Oracle Database** (`19c` / `21c XE` / `23ai Free`) — опционально. Если локальный сервер Oracle недоступен на порту `1521` или включён флаг `ORACLE_MOCK=true`, бэкенд автоматически запускается со встроенным эмулятором таблиц Oracle и предзагруженными тестовыми данными (14 объектов по ВКО).
+- **Oracle Database** (`19c` / `21c XE` / `23ai Free`) — опционально. Если локальный сервер Oracle недоступен на порту `1521` или включён флаг `ORACLE_MOCK=true`, бэкенд автоматически запускается со встроенным эмулятором таблиц Oracle (`backend/oracle-data-snapshot.json`) и предзагруженными тестовыми данными по ВКО.
 
 ---
 
@@ -42,8 +57,6 @@ ORACLE_MOCK=false
 JWT_SECRET=change_me_to_long_random_string
 ```
 
-Хэширование паролей выполняется средствами стандартного модуля `node:crypto` (`SHA-256` с константным по времени сравнением `timingSafeEqual`), поэтому дополнительные ключи окружения для хэширования не требуются.
-
 ### Frontend (`frontend/.env.local`)
 
 Скопируйте файл `frontend/.env.example` в `frontend/.env.local`:
@@ -56,56 +69,69 @@ NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
 
 ## 4. Маршрутизация, Авторизация и REST API
 
-### Публичные и защищённые маршруты Frontend
+### Маршруты Frontend
 
-- `/` и `/catalog` — **открытый публичный маршрут** (доступен гостям без авторизации). Отображает фильтры по району, цене и сортировке, интерактивную карту ВКО с кластеризацией маркеров и карточки квартир (по 8 на странице).
-- `/properties/[id]` — детальная карточка квартиры (доступна для чтения гостям). При нажатии кнопки **«Оставить заявку»** неавторизованный пользователь автоматически перенаправляется на `/login?redirect=/properties/[id]`.
-- `/login` — страница входа в систему со ссылкой `Нет аккаунта? Зарегистрироваться` (`/register`). После успешного входа сохраняет JWT в `localStorage` и `cookies` и возвращает пользователя на исходную страницу (`redirect`) либо в `/landlord` / `/catalog`.
-- `/register` — страница регистрации нового пользователя (ФИО, Email, телефон, пароль, выбор роли `TENANT` или `LANDLORD`). После регистрации сразу выдаёт JWT-токен и авторизует пользователя.
-- `/landlord` — защищённый маршрут личного кабинета арендодателя (только для роли `LANDLORD`; для гостей выполняется редирект на `/login`, для `TENANT` — `403 Forbidden`).
+- `/` и `/catalog` — открытый публичный каталог с умными фильтрами, интерактивной картой ВКО и карточками объектов.
+- `/properties/[id]` — детальная страница квартиры с фотогалереей, характеристиками, интерактивной картой расположения (`PropertyDetailMap`) и формой подачи заявки на аренду.
+- `/favorites` — страница избранных объектов арендатора.
+- `/login` и `/register` — страницы входа и регистрации с выбором роли (`TENANT` или `LANDLORD`).
+- `/landlord` — защищённый личный кабинет арендодателя: входящие заявки на аренду, форма добавления/редактирования с картой выбора геопозиции (`LocationPickerMap`) и список собственных объектов с фильтрацией и пагинацией.
 
-### Эндпоинты авторизации и регистрации (`/api/v1/auth`)
+### Основные эндпоинты REST API (`/api/v1`)
 
 | Метод | Эндпоинт | Доступ | Описание |
 |---|---|---|---|
-| `POST` | `/api/v1/auth/register` | Публичный | Регистрация пользователя (`fullName`, `email`, `phone`, `password`, `role`: `'TENANT' \| 'LANDLORD'`). Хэширует пароль, создаёт запись в `USERS` и возвращает `{ token, user }`. |
-| `POST` | `/api/v1/auth/login` | Публичный | Аутентификация по `email` и `password`. Проверяет хэш пароля в `USERS` и возвращает `{ token, user }`. |
-| `GET` | `/api/v1/auth/me` | `Bearer JWT` | Возвращает профиль текущего авторизованного пользователя. |
+| `POST` | `/api/v1/auth/register` | Публичный | Регистрация пользователя (`TENANT` или `LANDLORD`), возвращает `{ token, user }`. |
+| `POST` | `/api/v1/auth/login` | Публичный | Вход по `email` и `password`, возвращает `{ token, user }`. |
+| `GET` | `/api/v1/auth/me` | `Bearer JWT` | Профиль текущего авторизованного пользователя. |
+| `GET` | `/api/v1/properties` | Публичный | Список доступных объектов с фильтрацией и расчётом индикатора выгодной цены (`is_good_price`). |
+| `GET` | `/api/v1/properties/my` | `LANDLORD` | Все объекты текущего арендодателя (`AVAILABLE`, `RENTED`, `INACTIVE`). |
+| `GET` | `/api/v1/properties/:id` | Публичный | Детальная информация об объекте недвижимости, включая координаты `latitude` и `longitude`. |
+| `POST` | `/api/v1/properties` | `LANDLORD` | Создание нового объекта с адресом и координатами (`latitude`, `longitude`). |
+| `PUT` / `PATCH` | `/api/v1/properties/:id` | `LANDLORD` (Владелец) | Обновление параметров и геокоординат объекта. |
+| `POST` | `/api/v1/properties/:id/image` | `LANDLORD` (Владелец) | Загрузка фотографии объекта (`multipart/form-data`, поле `image`). |
+| `PATCH` | `/api/v1/properties/:id/deactivate` | `LANDLORD` (Владелец) | Временное снятие объекта с публикации (перевод в статус `INACTIVE`). |
+| `PATCH` | `/api/v1/properties/:id/activate` | `LANDLORD` (Владелец) | Возврат объекта в каталог (перевод в статус `AVAILABLE`). |
+| `DELETE` | `/api/v1/properties/:id` | `LANDLORD` (Владелец) | Полное каскадное удаление объекта и связанных записей из базы данных (`403 Forbidden` при попытке удалить чужой объект). |
+| `POST` | `/api/v1/applications` | `TENANT` | Подача заявки на аренду выбранной квартиры. |
+| `PATCH` | `/api/v1/applications/:id/approve` | `LANDLORD` | Одобрение заявки с автоматической генерацией договора (`CONTRACTS`) и графика платежей (`PAYMENTS`). |
 
 ---
 
-## 5. Запуск проекта
+## 5. Запуск, остановка и тестирование проекта
 
-### Шаг 1. Установка зависимостей
+### Быстрый запуск и остановка (Antigravity Skill / PowerShell)
 
-```bash
-# Установка пакетов Backend
-cd backend
-npm install
+В проекте настроен скилл `.agents/skills/project-lifecycle` (команды `/start` и `/stop` в чате агента), а также готовые PowerShell-скрипты:
 
-# Установка пакетов Frontend
-cd ../frontend
-npm install
+```powershell
+# Автоматический запуск Backend (порт 4000) и Frontend (порт 3000)
+powershell -ExecutionPolicy Bypass -File .\.agents\skills\project-lifecycle\scripts\start.ps1
+
+# Остановка всех процессов и освобождение портов 3000 и 4000
+powershell -ExecutionPolicy Bypass -File .\.agents\skills\project-lifecycle\scripts\stop.ps1
 ```
 
-### Шаг 2. Запуск в режиме разработки
+### Ручной запуск
 
-Откройте два терминала:
-
-**Терминал 1 — Backend (порт `4000`):**
+**Установка зависимостей:**
 ```bash
+cd backend && npm install
+cd ../frontend && npm install
+```
+
+**Режим разработки (2 терминала):**
+```bash
+# Терминал 1 — Backend (порт 4000)
 cd backend
 npm run start:dev
-```
 
-**Терминал 2 — Frontend (порт `3000`):**
-```bash
+# Терминал 2 — Frontend (порт 3000)
 cd frontend
 npm run dev
 ```
 
-### Шаг 3. Сборка и запуск в Production-режиме
-
+**Production-сборка и запуск:**
 ```bash
 # Backend
 cd backend
@@ -118,15 +144,19 @@ npm run build
 npm run start
 ```
 
-После запуска интерфейс доступен по адресу `http://localhost:3000`, а REST API — по адресу `http://localhost:4000/api/v1`.
+### Автоматическое интеграционное тестирование (Smoke Test)
+
+Для проверки сохранения и обновления GPS-координат (`latitude`, `longitude`), защиты прав владельца (`403 Forbidden`) и полного каскадного удаления объектов (`DELETE /api/v1/properties/:id`) запустите скрипт при работающем бэкенде:
+
+```bash
+node backend/test-coordinates-smoke.js
+```
 
 ---
 
 ## 6. База данных: Запуск, Инициализация и Просмотр
 
-### Вариант А. Быстрый запуск Oracle Database 23ai Free в Docker (рекомендуется)
-
-Если Oracle Database не установлена на хост-машине, поднимите готовый контейнер с базой `FREEPDB1` и пользователем `rental`:
+### Вариант А. Быстрый запуск Oracle Database 23ai Free в Docker
 
 ```bash
 docker run -d \
@@ -138,36 +168,9 @@ docker run -d \
   gvenzl/oracle-free:latest
 ```
 
-Проверка готовности контейнера (дождитесь строки `DATABASE IS READY TO USE!`):
-```bash
-docker logs -f oracle-rental
-```
+### Вариант Б. Автономный режим без установки Oracle (встроенное хранилище)
 
-Управление контейнером:
-```bash
-# Остановка БД
-docker stop oracle-rental
-
-# Повторный запуск БД
-docker start oracle-rental
-```
-
-### Вариант Б. Запуск локальной службы Oracle Database на Windows
-
-Если Oracle установлена локально (например, Oracle XE / Free), запустите слушатель `TNSListener` и службу инстанса в **PowerShell от имени Администратора**:
-
-```powershell
-# Запуск слушателя порта 1521 и сервиса БД
-Start-Service OracleOraDB21Home1TNSListener
-Start-Service OracleServiceXE
-
-# Либо через утилиту lsnrctl
-lsnrctl start
-```
-
-### Вариант В. Автономный режим без установки Oracle (встроенное хранилище)
-
-Если сервер Oracle на `localhost:1521` не запущен или в `backend/.env` указано `ORACLE_MOCK=true`, бэкенд автоматически включает синхронизируемое хранилище `InMemoryOracleStore` (`backend/oracle-data-snapshot.json`) с предзагруженными 14 объектами по ВКО и 2 тестовыми пользователями. Никаких дополнительных действий не требуется.
+Если сервер Oracle на `localhost:1521` не запущен или в `backend/.env` указано `ORACLE_MOCK=true`, бэкенд автоматически включает синхронизируемое хранилище `InMemoryOracleStore` (`backend/oracle-data-snapshot.json`) с предзагруженными объектами по ВКО и тестовыми пользователями.
 
 ---
 
@@ -176,50 +179,35 @@ lsnrctl start
 1. **`LANDLORDS`** — арендодатели (`id`, `full_name`, `email`, `phone`, `password_hash`).
 2. **`TENANTS`** — арендаторы (`id`, `full_name`, `email`, `phone`, `password_hash`).
 3. **`PROPERTY_TYPES`** — справочник типов жилья (`type_id`, `type_name`: Квартира, Студия, Апартаменты, Лофт).
-4. **`ADDRESSES`** — адреса и геокоординаты объектов (`address_id`, `city`, `district`, `street`, `building`, `apartment`, `lat`, `lng`).
-5. **`PROPERTIES`** — объекты недвижимости (`property_id`, `landlord_id`, `type_id`, `address_id`, `title`, `description`, `rooms`, `area`, `monthly_price`, `pets_allowed`, `no_deposit`, `from_owner`, `status` (`AVAILABLE` / `RENTED` / `INACTIVE`), `created_at`).
+4. **`ADDRESSES`** — адреса и координаты объектов (`address_id`, `city`, `district`, `street`, `building`, `apartment`, `lat`, `lng`).
+5. **`PROPERTIES`** — объекты недвижимости (`property_id`, `landlord_id`, `type_id`, `address_id`, `title`, `description`, `rooms`, `area`, `monthly_price`, `pets_allowed`, `no_deposit`, `from_owner`, `image_url`, `latitude`, `longitude`, `status` (`AVAILABLE` / `RENTED` / `INACTIVE`), `created_at`).
 6. **`FAVORITES`** — избранные объекты арендаторов (`user_id`, `property_id`, `created_at`).
 7. **`RENTAL_APPLICATIONS`** — заявки арендаторов (`application_id`, `property_id`, `tenant_id`, `desired_start_date`, `lease_months`, `message`, `status` (`PENDING` / `APPROVED` / `REJECTED`), `created_at`).
 8. **`CONTRACTS`** — договоры аренды (`contract_id`, `application_id`, `property_id`, `tenant_id`, `landlord_id`, `start_date`, `end_date`, `monthly_amount`, `status`).
 9. **`PAYMENTS`** — график ежемесячных платежей (`payment_id`, `contract_id`, `due_date`, `amount`, `status` (`PENDING` / `PAID` / `OVERDUE`), `paid_at`).
 
-### SQL-скрипты инициализации и миграции
+### SQL-скрипты инициализации и миграции (`backend/sql/`)
 
-Скрипты расположены в директории `backend/sql/`:
-- `backend/sql/seed.sql` — создание таблиц (`CREATE TABLE`), ограничений целостности, справочника типов недвижимости и тестовых пользователей.
-- `backend/sql/02_add_coordinates_and_10_properties.sql` — добавление колонок координат (`LAT`, `LNG`) в таблицу `ADDRESSES` и наполнение базы базовыми объектами недвижимости в ВКО.
-- `backend/sql/03_split_users_into_tenants_and_landlords.sql` — разделение единой таблицы пользователей на `LANDLORDS` и `TENANTS` с обновлением внешних ключей.
-- `backend/sql/04_add_favorites_and_amenities.sql` — добавление таблицы `FAVORITES` и умных тегов (`pets_allowed`, `no_deposit`, `from_owner`) в `PROPERTIES`.
-- `backend/sql/05_seed_3_landlords_and_30_properties.sql` — создание 3 дополнительных арендодателей (`LANDLORDS`) и 30 новых объектов недвижимости (по 10 квартир на каждого арендодателя) со статусом `AVAILABLE`.
+- `seed.sql` — создание всех таблиц (`CREATE TABLE`), включая колонки `latitude`, `longitude`, `image_url`, ограничений целостности, справочника типов недвижимости и тестовых данных.
+- `02_add_coordinates_and_10_properties.sql` — добавление координат в `ADDRESSES` и базовых объектов по ВКО.
+- `03_split_users_into_tenants_and_landlords.sql` — разделение таблиц на `LANDLORDS` и `TENANTS`.
+- `04_add_favorites_and_amenities.sql` — таблица `FAVORITES` и параметры удобств (`pets_allowed`, `no_deposit`, `from_owner`).
+- `05_seed_3_landlords_and_30_properties.sql` — 3 дополнительных арендодателя и 30 объектов недвижимости по ВКО.
+- `06_update_unique_interior_images.sql` и `07_fix_all_44_unique_images.sql` — назначение уникальных фотографий интерьеров.
+- `08_add_latitude_longitude_to_properties.sql` — миграция добавления колонок `LATITUDE` и `LONGITUDE` непосредственно в таблицу `PROPERTIES` с синхронизацией координат из `ADDRESSES`.
 
-Применение скриптов через `sqlplus` (или внутри Docker-контейнера):
-```bash
-# Через локальный sqlplus
-sqlplus rental/change_me@localhost:1521/FREEPDB1 @backend/sql/seed.sql
-sqlplus rental/change_me@localhost:1521/FREEPDB1 @backend/sql/02_add_coordinates_and_10_properties.sql
-sqlplus rental/change_me@localhost:1521/FREEPDB1 @backend/sql/05_seed_3_landlords_and_30_properties.sql
+### Просмотр содержимого БД
 
-# Либо если БД запущена в Docker-контейнере oracle-rental
-docker exec -i oracle-rental sqlplus rental/change_me@localhost:1521/FREEPDB1 < backend/sql/seed.sql
-docker exec -i oracle-rental sqlplus rental/change_me@localhost:1521/FREEPDB1 < backend/sql/02_add_coordinates_and_10_properties.sql
-docker exec -i oracle-rental sqlplus rental/change_me@localhost:1521/FREEPDB1 < backend/sql/05_seed_3_landlords_and_30_properties.sql
-```
-
-### Просмотр содержимого БД (Терминал и DBeaver / DataGrip)
-
-**1. Быстрый просмотр таблиц в терминале (`db-viewer.js`):**
+**Быстрый просмотр таблиц в терминале (`db-viewer.js`):**
 ```bash
 cd backend
 node db-viewer.js
 ```
-Скрипт выводит содержимое таблиц `LANDLORDS`, `TENANTS`, `PROPERTIES`, `FAVORITES` и `RENTAL_APPLICATIONS` в виде таблиц `console.table`.
 
-**2. Подключение через DBeaver / DataGrip:**
-- **Host:** `localhost` (`127.0.0.1`)
-- **Port:** `1521`
-- **Service Name:** `FREEPDB1` (тип подключения: `Service Name`, не `SID`)
-- **Username:** `rental`
-- **Password:** `change_me`
+**Подключение через DBeaver / DataGrip:**
+- **Host:** `localhost` (`127.0.0.1`), **Port:** `1521`
+- **Service Name:** `FREEPDB1`
+- **Username:** `rental`, **Password:** `change_me`
 - **JDBC URL:** `jdbc:oracle:thin:@//localhost:1521/FREEPDB1`
 
 ---
@@ -231,7 +219,7 @@ node db-viewer.js
 
 | Роль | ФИО | Email (Логин) | Пароль (открытый) | Телефон | Примечание / Объекты |
 |---|---|---|---|---|---|
-| **Арендодатель (`LANDLORD`)** | Иван Петров | `landlord@example.com` | `demo123` | `+79001112233` | Базовый аккаунт арендодателя (14 объектов по ВКО). |
+| **Арендодатель (`LANDLORD`)** | Иван Петров | `landlord@example.com` | `demo123` | `+79001112233` | Базовый аккаунт арендодателя (объекты в Усть-Каменогорске и Риддере). |
 | **Арендодатель (`LANDLORD`)** | Алихан Серикович Нурпеисов | `alikhan@example.com` | `alikhan123` | `+77015551001` | 10 квартир (`AVAILABLE`) в Усть-Каменогорске и Риддере. |
 | **Арендодатель (`LANDLORD`)** | Дана Маратовна Ахметова | `dana@example.com` | `dana123` | `+77025552002` | 10 квартир (`AVAILABLE`) в Усть-Каменогорске и Риддере. |
 | **Арендодатель (`LANDLORD`)** | Тимур Ерланович Касымов | `timur@example.com` | `timur123` | `+77055553003` | 10 квартир (`AVAILABLE`) в Усть-Каменогорске и Риддере. |

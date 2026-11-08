@@ -1,5 +1,17 @@
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 const toBoolean = ({ value }: { value: unknown }) => {
   if (typeof value === 'boolean') return value;
@@ -16,6 +28,8 @@ export class AddressDto {
   @IsOptional() @IsString() @MaxLength(30) apartment?: string;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(-90) @Max(90) lat?: number;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(-180) @Max(180) lng?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-90) @Max(90) latitude?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-180) @Max(180) longitude?: number;
 }
 
 export class CreatePropertyDto {
@@ -30,6 +44,11 @@ export class CreatePropertyDto {
   @IsOptional() @Transform(toBoolean) @IsBoolean() noDeposit?: boolean;
   @IsOptional() @Transform(toBoolean) @IsBoolean() fromOwner?: boolean;
   @IsOptional() @IsString() @MaxLength(1000) imageUrl?: string;
+
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-90) @Max(90) latitude?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-180) @Max(180) longitude?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-90) @Max(90) lat?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-180) @Max(180) lng?: number;
 
   @ValidateNested() @Type(() => AddressDto)
   address!: AddressDto;

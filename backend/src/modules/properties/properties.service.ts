@@ -45,13 +45,20 @@ export class PropertiesService {
     return this.findOne(id);
   }
 
-  /** Мягкое удаление: история договоров и платежей сохраняется. */
+  /** Полное удаление объекта недвижимости и связанных записей из БД (только владельцем). */
   async remove(id: number, ownerId: number): Promise<void> {
+    await this.getOwned(id, ownerId);
+    await this.db.transaction((tx) => this.repo.deleteById(id, ownerId, tx));
+  }
+
+  /** Снятие объекта с публикации (AVAILABLE -> INACTIVE) с сохранением истории. */
+  async deactivate(id: number, ownerId: number): Promise<Property> {
     const property = await this.getOwned(id, ownerId);
     if (property.status === 'RENTED') {
       throw new ConflictException('Нельзя снять с публикации объект, находящийся в аренде (RENTED)');
     }
     await this.repo.updateStatus(id, 'INACTIVE');
+    return this.findOne(id);
   }
 
   /** Повторная публикация снятого объекта (INACTIVE -> AVAILABLE) или освобождение после аренды. */
@@ -65,10 +72,12 @@ export class PropertiesService {
     return this.findOne(id);
   }
 
-  /** Проверяет существование объекта и права владельца. */
+  /** Проверяет существование объекта и права владельца (landlord_id === ownerId из JWT). */
   private async getOwned(id: number, ownerId: number): Promise<Property> {
     const property = await this.findOne(id);
-    if (property.ownerId !== ownerId) throw new ForbiddenException('Not the owner of this property');
+    if (Number(property.ownerId) !== Number(ownerId)) {
+      throw new ForbiddenException('Вы можете управлять только собственными объектами недвижимости');
+    }
     return property;
   }
 }

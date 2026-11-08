@@ -532,16 +532,26 @@ export class InMemoryOracleStore {
           NO_DEPOSIT: apt.noDeposit,
           FROM_OWNER: apt.fromOwner,
           IMAGE_URL: defaultImageUrlForPropertyId(nextPropId),
+          LATITUDE: apt.lat,
+          LONGITUDE: apt.lng,
           STATUS: 'AVAILABLE',
           CREATED_AT: new Date(baseTime + idx * 1800 * 1000),
         } as any);
       }
     });
 
-    // Гарантируем, что у всех объектов в памяти заполнен валидный IMAGE_URL
+    // Гарантируем, что у всех объектов в памяти заполнены валидный IMAGE_URL и координаты LATITUDE/LONGITUDE
     for (const p of this.state.properties as any[]) {
       p.IMAGE_URL = sanitizePropertyImageUrl(p.IMAGE_URL, Number(p.PROPERTY_ID));
+      const addr = this.state.addresses.find((a) => a.ADDRESS_ID === p.ADDRESS_ID);
+      if (p.LATITUDE === undefined || p.LATITUDE === null) {
+        p.LATITUDE = Number(addr?.LAT ?? 49.953);
+      }
+      if (p.LONGITUDE === undefined || p.LONGITUDE === null) {
+        p.LONGITUDE = Number(addr?.LNG ?? 82.618);
+      }
     }
+    this.persistSnapshot();
   }
 
   private persistSnapshot(): void {
@@ -604,6 +614,9 @@ export class InMemoryOracleStore {
     }
     if (norm === 'SELECT * FROM PROPERTIES ORDER BY PROPERTY_ID') {
       return [...this.state.properties] as unknown as T[];
+    }
+    if (norm.includes('FROM PROPERTIES') && !norm.includes('JOIN') && binds.id !== undefined) {
+      return this.state.properties.filter((p) => Number(p.PROPERTY_ID) === Number(binds.id)) as unknown as T[];
     }
     if (norm === 'SELECT * FROM RENTAL_APPLICATIONS ORDER BY APPLICATION_ID') {
       return [...this.state.applications] as unknown as T[];
@@ -848,13 +861,51 @@ export class InMemoryOracleStore {
       }
       result = { rowsAffected: exists ? 0 : 1 };
     } else if (norm.startsWith('DELETE FROM FAVORITES')) {
-      const userId = Number(binds.userId);
-      const propertyId = Number(binds.propertyId);
       const before = this.state.favorites.length;
-      this.state.favorites = this.state.favorites.filter(
-        (f) => !(Number(f.USER_ID) === userId && Number(f.PROPERTY_ID) === propertyId),
-      );
+      if (binds.userId !== undefined) {
+        const userId = Number(binds.userId);
+        const propertyId = Number(binds.propertyId);
+        this.state.favorites = this.state.favorites.filter(
+          (f) => !(Number(f.USER_ID) === userId && Number(f.PROPERTY_ID) === propertyId),
+        );
+      } else {
+        const propId = Number(binds.id ?? binds.propertyId);
+        this.state.favorites = this.state.favorites.filter((f) => Number(f.PROPERTY_ID) !== propId);
+      }
       result = { rowsAffected: before - this.state.favorites.length };
+    } else if (norm.startsWith('DELETE FROM PAYMENTS')) {
+      const propId = Number(binds.id ?? binds.propertyId);
+      const contractIds = new Set(
+        this.state.contracts.filter((c) => Number(c.PROPERTY_ID) === propId).map((c) => Number(c.CONTRACT_ID)),
+      );
+      const before = this.state.payments.length;
+      this.state.payments = this.state.payments.filter((p) => !contractIds.has(Number(p.CONTRACT_ID)));
+      result = { rowsAffected: before - this.state.payments.length };
+    } else if (norm.startsWith('DELETE FROM CONTRACTS')) {
+      const propId = Number(binds.id ?? binds.propertyId);
+      const before = this.state.contracts.length;
+      this.state.contracts = this.state.contracts.filter((c) => Number(c.PROPERTY_ID) !== propId);
+      result = { rowsAffected: before - this.state.contracts.length };
+    } else if (norm.startsWith('DELETE FROM RENTAL_APPLICATIONS')) {
+      const propId = Number(binds.id ?? binds.propertyId);
+      const before = this.state.applications.length;
+      this.state.applications = this.state.applications.filter((a) => Number(a.PROPERTY_ID) !== propId);
+      result = { rowsAffected: before - this.state.applications.length };
+    } else if (norm.startsWith('DELETE FROM PROPERTIES')) {
+      const propId = Number(binds.id ?? binds.propertyId);
+      const ownerId = binds.ownerId !== undefined ? Number(binds.ownerId) : undefined;
+      const before = this.state.properties.length;
+      this.state.properties = this.state.properties.filter((p) => {
+        if (Number(p.PROPERTY_ID) !== propId) return true;
+        if (ownerId !== undefined && Number(p.LANDLORD_ID) !== ownerId) return true;
+        return false;
+      });
+      result = { rowsAffected: before - this.state.properties.length };
+    } else if (norm.startsWith('DELETE FROM ADDRESSES')) {
+      const usedAddrIds = new Set(this.state.properties.map((p) => Number(p.ADDRESS_ID)));
+      const before = this.state.addresses.length;
+      this.state.addresses = this.state.addresses.filter((a) => usedAddrIds.has(Number(a.ADDRESS_ID)));
+      result = { rowsAffected: before - this.state.addresses.length };
     } else if (norm.startsWith('INSERT INTO ADDRESSES')) {
       const id = ++this.seq.address;
       this.state.addresses.push({
@@ -870,6 +921,9 @@ export class InMemoryOracleStore {
       result = { outBinds: { id: [id] }, rowsAffected: 1 };
     } else if (norm.startsWith('INSERT INTO PROPERTIES')) {
       const id = ++this.seq.property;
+      const addr = this.state.addresses.find((a) => a.ADDRESS_ID === Number(binds.addressId));
+      const lat = Number(binds.latitude ?? binds.lat ?? addr?.LAT ?? 49.953);
+      const lng = Number(binds.longitude ?? binds.lng ?? addr?.LNG ?? 82.618);
       this.state.properties.push({
         PROPERTY_ID: id,
         LANDLORD_ID: Number(binds.landlordId),
@@ -884,6 +938,8 @@ export class InMemoryOracleStore {
         NO_DEPOSIT: Number(binds.noDeposit ?? 0),
         FROM_OWNER: Number(binds.fromOwner ?? 1),
         IMAGE_URL: binds.imageUrl ?? defaultImageUrlForPropertyId(id),
+        LATITUDE: lat,
+        LONGITUDE: lng,
         STATUS: 'AVAILABLE',
         CREATED_AT: new Date(),
       } as any);
@@ -918,8 +974,25 @@ export class InMemoryOracleStore {
         if (binds.noDeposit !== undefined) prop.NO_DEPOSIT = Number(binds.noDeposit);
         if (binds.fromOwner !== undefined) prop.FROM_OWNER = Number(binds.fromOwner);
         if (binds.imageUrl !== undefined) prop.IMAGE_URL = binds.imageUrl;
+        if (binds.latitude !== undefined) prop.LATITUDE = Number(binds.latitude);
+        if (binds.longitude !== undefined) prop.LONGITUDE = Number(binds.longitude);
       }
       result = { rowsAffected: prop ? 1 : 0 };
+    } else if (norm.startsWith('UPDATE ADDRESSES SET')) {
+      const prop = this.state.properties.find((p) => p.PROPERTY_ID === Number(binds.propertyId));
+      const addr = prop
+        ? this.state.addresses.find((a) => a.ADDRESS_ID === prop.ADDRESS_ID)
+        : this.state.addresses.find((a) => a.ADDRESS_ID === Number(binds.addressId));
+      if (addr) {
+        if (binds.city !== undefined) addr.CITY = binds.city;
+        if (binds.district !== undefined) addr.DISTRICT = binds.district;
+        if (binds.street !== undefined) addr.STREET = binds.street;
+        if (binds.building !== undefined) addr.BUILDING = binds.building;
+        if (binds.apartment !== undefined) addr.APARTMENT = binds.apartment;
+        if (binds.lat !== undefined) addr.LAT = Number(binds.lat);
+        if (binds.lng !== undefined) addr.LNG = Number(binds.lng);
+      }
+      result = { rowsAffected: addr ? 1 : 0 };
     } else if (norm.startsWith('INSERT INTO RENTAL_APPLICATIONS')) {
       const id = ++this.seq.application;
       this.state.applications.push({

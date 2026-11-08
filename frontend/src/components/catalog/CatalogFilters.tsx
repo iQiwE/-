@@ -14,7 +14,7 @@ interface Props {
 const parsePrice = (v: string): number | undefined => (v === '' ? undefined : Math.max(0, Number(v)));
 
 const inputCls =
-  'w-full rounded-xl border border-[#E2D6C8] bg-[#FAF6F0]/60 px-3.5 py-2.5 text-sm text-[#2C221E] transition focus:border-[#B85D3B] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B85D3B]/20';
+  'w-full rounded-xl border border-[#E2D6C8] bg-[#FAF6F0]/70 px-3.5 py-2.5 text-sm text-[#2C221E] transition focus:border-[#B85D3B] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B85D3B]/20 dark:border-white/12 dark:bg-[#141312] dark:text-[#F5F3EF] dark:placeholder-[#7A7067] dark:focus:border-[#B89778] dark:focus:bg-[#181614] dark:focus:ring-[#B89778]/20';
 
 /** Панель фильтров. Отвечает только за ввод; состояние хранит родитель (контролируемый компонент). */
 export function CatalogFilters({ filter, districts, onChange, onReset }: Props) {
@@ -40,12 +40,12 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
 
   return (
     <form
-      className="flex flex-col gap-5 rounded-2xl border border-[#ECE2D6] bg-white p-6 shadow-[0_4px_24px_rgba(44,34,30,0.05)]"
+      className="flex flex-col gap-5 rounded-2xl border border-[#ECE2D6] bg-white p-6 shadow-[0_4px_24px_rgba(44,34,30,0.05)] transition-colors duration-300 dark:border-white/10 dark:bg-[#1C1A18] dark:shadow-[0_12px_36px_rgba(0,0,0,0.35)]"
       onSubmit={(e) => e.preventDefault()}
       aria-label="Фильтры каталога"
     >
       <div className="grid gap-4 sm:grid-cols-[1fr_1fr_1fr_1fr_auto] sm:items-end">
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
+        <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
           Район
           <select
             className={inputCls}
@@ -61,7 +61,7 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
           </select>
         </label>
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
+        <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
           Цена от, ₸
           <input
             type="number"
@@ -75,7 +75,7 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
           />
         </label>
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
+        <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
           Цена до, ₸
           <input
             type="number"
@@ -83,14 +83,14 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
             min={0}
             step={5000}
             placeholder="Без ограничений"
-            className={`${inputCls} ${rangeInvalid ? 'border-[#C84B31]' : ''}`}
+            className={`${inputCls} ${rangeInvalid ? 'border-[#C84B31] dark:border-[#E06C53]' : ''}`}
             value={maxPrice}
             onChange={(e) => setMaxPrice(e.target.value)}
             aria-invalid={rangeInvalid}
           />
         </label>
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-[#3D302A]">
+        <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
           Сортировка
           <select
             className={inputCls}
@@ -107,20 +107,22 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
         <button
           type="button"
           onClick={onReset}
-          className="rounded-xl border border-[#DFD3C3] bg-[#FAF6F0] px-5 py-2.5 text-sm font-medium text-[#3D302A] transition hover:border-[#B85D3B]/40 hover:bg-[#F3ECE2]"
+          className="rounded-full border border-[#DFD3C3] bg-[#FAF6F0] px-6 py-2.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] transition hover:border-[#B85D3B]/40 hover:bg-[#F3ECE2] dark:border-white/15 dark:bg-[#25221F] dark:text-[#E5E0D8] dark:hover:border-[#B89778] dark:hover:bg-[#2E2A26]"
         >
           Сбросить
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2.5 border-t border-[#F0E7DC] pt-4 text-xs font-medium text-[#3D302A]">
-        <span className="mr-1 text-[#6B5B50]">Умные теги:</span>
+      <div className="flex flex-wrap items-center gap-2.5 border-t border-[#F0E7DC] pt-4 text-xs font-medium text-[#3D302A] dark:border-white/10 dark:text-[#D5CEC4]">
+        <span className="mr-1 text-[11px] uppercase tracking-[0.16em] text-[#6B5B50] dark:text-[#8C8278]">
+          Умные теги:
+        </span>
 
         <label
           className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-3.5 py-1.5 transition-all duration-200 ${
             filter.petsAllowed
-              ? 'border-[#4D724D] bg-[#4D724D] text-white shadow-xs ring-2 ring-[#4D724D]/25'
-              : 'border-[#D5E0D5] bg-[#F2F6F2] text-[#3B593B] hover:border-[#B8CCB8] hover:bg-[#E6EFE6]'
+              ? 'border-[#4D724D] bg-[#4D724D] text-white shadow-xs ring-2 ring-[#4D724D]/25 dark:border-[#6B936B] dark:bg-[#4D724D] dark:text-white'
+              : 'border-[#D5E0D5] bg-[#F2F6F2] text-[#3B593B] hover:border-[#B8CCB8] hover:bg-[#E6EFE6] dark:border-white/12 dark:bg-[#23201D] dark:text-[#B8C9B8] dark:hover:border-[#6B936B]/50'
           }`}
         >
           <input
@@ -149,8 +151,8 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
         <label
           className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-3.5 py-1.5 transition-all duration-200 ${
             filter.noDeposit
-              ? 'border-[#B85D3B] bg-[#B85D3B] text-white shadow-xs ring-2 ring-[#B85D3B]/25'
-              : 'border-[#E8CFC4] bg-[#FAF0EB] text-[#8E4226] hover:border-[#D9B3A3] hover:bg-[#F5E6DF]'
+              ? 'border-[#B85D3B] bg-[#B85D3B] text-white shadow-xs ring-2 ring-[#B85D3B]/25 dark:border-[#B89778] dark:bg-[#B89778] dark:text-[#141312]'
+              : 'border-[#E8CFC4] bg-[#FAF0EB] text-[#8E4226] hover:border-[#D9B3A3] hover:bg-[#F5E6DF] dark:border-white/12 dark:bg-[#23201D] dark:text-[#D4B89C] dark:hover:border-[#B89778]/50'
           }`}
         >
           <input
@@ -179,8 +181,8 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
         <label
           className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-3.5 py-1.5 transition-all duration-200 ${
             filter.fromOwner
-              ? 'border-[#9C6B3B] bg-[#9C6B3B] text-white shadow-xs ring-2 ring-[#9C6B3B]/25'
-              : 'border-[#E6D6C3] bg-[#FBF5ED] text-[#785027] hover:border-[#D6BFA4] hover:bg-[#F5EBDC]'
+              ? 'border-[#9C6B3B] bg-[#9C6B3B] text-white shadow-xs ring-2 ring-[#9C6B3B]/25 dark:border-[#C5A585] dark:bg-[#C5A585] dark:text-[#141312]'
+              : 'border-[#E6D6C3] bg-[#FBF5ED] text-[#785027] hover:border-[#D6BFA4] hover:bg-[#F5EBDC] dark:border-white/12 dark:bg-[#23201D] dark:text-[#C7B8A5] dark:hover:border-[#C5A585]/50'
           }`}
         >
           <input
@@ -208,7 +210,7 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
       </div>
 
       {rangeInvalid && (
-        <p className="text-sm text-[#9E3B24]" role="alert">
+        <p className="text-sm text-[#9E3B24] dark:text-[#E5826C]" role="alert">
           Минимальная цена не может превышать максимальную.
         </p>
       )}
