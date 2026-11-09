@@ -35,7 +35,10 @@ export function resolvePropertyImageUrl(imageUrl?: string | null, propertyId = 1
     return fallback;
   }
   if (trimmed.startsWith('/uploads/')) {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+    if (typeof window !== 'undefined' && window.location?.hostname) {
+      return `http://${window.location.hostname}:4000${trimmed}`;
+    }
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.3.119:4000/api/v1';
     const serverOrigin = apiBase.replace(/\/api\/v1\/?$/, '');
     return `${serverOrigin}${trimmed}`;
   }
@@ -43,4 +46,22 @@ export function resolvePropertyImageUrl(imageUrl?: string | null, propertyId = 1
     return trimmed;
   }
   return fallback;
+}
+
+export function resolvePropertyGalleryUrls(
+  imageUrl?: string | null,
+  propertyId = 1,
+  count = 4,
+): string[] {
+  const primary = resolvePropertyImageUrl(imageUrl, propertyId);
+  const gallery: string[] = [primary];
+  const baseIdx = Math.max(0, Number(propertyId) - 1);
+
+  for (let i = 1; gallery.length < count && i < FALLBACK_UNSPLASH_URLS.length; i++) {
+    const candidate = FALLBACK_UNSPLASH_URLS[(baseIdx + i * 3) % FALLBACK_UNSPLASH_URLS.length];
+    if (!gallery.includes(candidate)) {
+      gallery.push(candidate);
+    }
+  }
+  return gallery;
 }

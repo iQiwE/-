@@ -1,4 +1,9 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+export function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    return `http://${window.location.hostname}:4000/api/v1`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.3.119:4000/api/v1';
+}
 
 export class ApiError extends Error {
   constructor(
@@ -15,7 +20,7 @@ export async function apiGet<T>(
   signal?: AbortSignal,
   token?: string,
 ): Promise<T> {
-  const url = new URL(`${BASE_URL}${path}`);
+  const url = new URL(`${getApiBaseUrl()}${path}`);
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== '') url.searchParams.set(key, String(value));
   });
@@ -43,7 +48,7 @@ export async function apiRequest<T>(
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${getApiBaseUrl()}${path}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,

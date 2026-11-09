@@ -1,8 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { memo, useEffect, useState } from 'react';
-import { FALLBACK_UNSPLASH_URLS, formatAddress, formatPrice, resolvePropertyImageUrl } from '@/lib/format';
+import { memo, UIEvent, useEffect, useMemo, useState } from 'react';
+import {
+  FALLBACK_UNSPLASH_URLS,
+  formatAddress,
+  formatPrice,
+  resolvePropertyGalleryUrls,
+} from '@/lib/format';
 import { Property } from '@/types/property';
 
 interface Props {
@@ -11,7 +16,11 @@ interface Props {
   onToggleFavorite?: (propertyId: number) => void;
 }
 
-/** Карточка объекта в каталоге с фотографией интерьера, избранным, умными тегами и бейджем цены. */
+/**
+ * Крафтовая карточка основной выдачи без лишних рамок и визуального шума:
+ * - Акцент на свайп-галерее фотографий (rounded-2xl) и крупной цене.
+ * - Второстепенные параметры и адрес уведены в спокойный приглушенный тон.
+ */
 function PropertyCardBase({ property, isFavorite = false, onToggleFavorite }: Props) {
   const {
     id,
@@ -24,46 +33,78 @@ function PropertyCardBase({ property, isFavorite = false, onToggleFavorite }: Pr
     fromOwner,
     image_url,
     is_good_price,
-    type,
     address,
   } = property;
 
-  const fallbackSrc = FALLBACK_UNSPLASH_URLS[Math.max(0, id - 1) % FALLBACK_UNSPLASH_URLS.length];
-  const [imgSrc, setImgSrc] = useState(() => resolvePropertyImageUrl(image_url, id));
+  const galleryBase = useMemo(() => resolvePropertyGalleryUrls(image_url, id, 4), [image_url, id]);
+  const [slides, setSlides] = useState<string[]>(galleryBase);
+  const [activeSlide, setActiveSlide] = useState(0);
 
   useEffect(() => {
-    setImgSrc(resolvePropertyImageUrl(image_url, id));
-  }, [image_url, id]);
+    setSlides(galleryBase);
+    setActiveSlide(0);
+  }, [galleryBase]);
+
+  function handleGalleryScroll(e: UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    if (!el.clientWidth) return;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    if (idx !== activeSlide && idx >= 0 && idx < slides.length) {
+      setActiveSlide(idx);
+    }
+  }
+
+  // Спокойная текстовая строка преимуществ вместо шумных разноцветных рамок
+  const perks: string[] = [];
+  if (fromOwner) perks.push('от хозяина');
+  if (noDeposit) perks.push('без залога');
+  if (petsAllowed) perks.push('можно с питомцами');
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-[#EFE6DC]/80 bg-white shadow-[0_4px_24px_rgba(44,34,30,0.04)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(44,34,30,0.09)] dark:border-white/10 dark:bg-[#1C1A18] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] dark:hover:border-[#B89778]/40">
-      <div className="relative h-48 w-full overflow-hidden rounded-t-2xl bg-[#EFE6DC] dark:bg-[#25221F]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={imgSrc}
-          alt={title}
-          loading="lazy"
-          onError={() => {
-            if (imgSrc !== fallbackSrc) {
-              setImgSrc(fallbackSrc);
-            }
-          }}
-          className="h-48 w-full overflow-hidden rounded-t-2xl object-cover transition duration-500 group-hover:scale-105"
-        />
-
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/15" />
-
-        <div className="absolute left-3.5 top-3.5 flex flex-wrap items-center gap-1.5 pr-10">
-          <span className="rounded-full bg-[#FAF6F0]/95 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-[#3D302A] shadow-2xs backdrop-blur-xs dark:border dark:border-white/15 dark:bg-[#141312]/85 dark:text-[#E5E0D8]">
-            {type.name}
-          </span>
-          {is_good_price && (
-            <span className="rounded-full bg-[#4D724D] px-2.5 py-1 text-xs font-semibold text-white shadow-2xs">
-              🔥 Хорошая цена
-            </span>
-          )}
+    <article className="group flex flex-col">
+      {/* Фото-карусель как самостоятельный обтекаемый холст без внешней рамки карточки */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-[#FADCD5]/30 shadow-[0_6px_20px_rgba(44,1,7,0.06)] transition-shadow duration-300 group-hover:shadow-[0_14px_34px_rgba(44,1,7,0.12)] sm:aspect-[4/3] dark:bg-[#2D222F] dark:shadow-[0_10px_28px_rgba(0,0,0,0.4)]">
+        <div
+          onScroll={handleGalleryScroll}
+          className="no-scrollbar flex h-full w-full snap-x snap-mandatory overflow-x-auto scroll-smooth"
+        >
+          {slides.map((src, idx) => (
+            <Link
+              key={`${id}-photo-${idx}`}
+              href={`/properties/${id}`}
+              className="block h-full w-full shrink-0 snap-center"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt={`${title} — фото ${idx + 1}`}
+                loading="lazy"
+                onError={() => {
+                  const fallback =
+                    FALLBACK_UNSPLASH_URLS[(Math.max(0, id - 1) + idx + 1) % FALLBACK_UNSPLASH_URLS.length];
+                  setSlides((prev) => prev.map((item, i) => (i === idx && item !== fallback ? fallback : item)));
+                }}
+                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+              />
+            </Link>
+          ))}
         </div>
 
+        {/* Деликатное затемнение только у нижнего края для читаемости точек пагинации */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/45 to-transparent" />
+
+        {/* Только один осмысленный бейдж в левом верхнем углу */}
+        {is_good_price ? (
+          <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-[#C42759]/95 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-white shadow-xs backdrop-blur-md dark:bg-[#6D3C52]/95 dark:text-[#FADCD5]">
+            Ниже рынка
+          </span>
+        ) : fromOwner ? (
+          <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-[#1B0C1A]/60 px-2.5 py-1 text-[11px] font-medium text-[#FADCD5] backdrop-blur-md">
+            Собственник
+          </span>
+        ) : null}
+
+        {/* Иконка "В избранное" поверх фотографии */}
         {onToggleFavorite && (
           <button
             type="button"
@@ -73,18 +114,15 @@ function PropertyCardBase({ property, isFavorite = false, onToggleFavorite }: Pr
               onToggleFavorite(id);
             }}
             aria-label={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
-            title={isFavorite ? 'В избранном' : 'Добавить в избранное'}
-            className="absolute right-3.5 top-3.5 flex h-9 w-9 items-center justify-center rounded-full bg-[#FAF6F0]/95 shadow-2xs transition hover:scale-105 hover:bg-white dark:border dark:border-white/15 dark:bg-[#141312]/85 dark:hover:bg-[#25221F]"
+            className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition duration-200 active:scale-90 hover:bg-black/55"
           >
             <svg
               viewBox="0 0 24 24"
               className={`h-5 w-5 transition ${
-                isFavorite
-                  ? 'fill-[#B85D3B] text-[#B85D3B] dark:fill-[#D4B89C] dark:text-[#D4B89C]'
-                  : 'fill-none text-[#5C4D44] hover:text-[#B85D3B] dark:text-[#C7BFB5] dark:hover:text-[#D4B89C]'
+                isFavorite ? 'fill-[#C42759] text-[#C42759]' : 'fill-none text-white/95'
               }`}
               stroke="currentColor"
-              strokeWidth={2}
+              strokeWidth={1.9}
             >
               <path
                 strokeLinecap="round"
@@ -94,60 +132,53 @@ function PropertyCardBase({ property, isFavorite = false, onToggleFavorite }: Pr
             </svg>
           </button>
         )}
+
+        {/* Лаконичные точки пагинации поверх фото */}
+        <div
+          className="pointer-events-none absolute bottom-2.5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5"
+          aria-hidden="true"
+        >
+          {slides.map((_, idx) => (
+            <span
+              key={idx}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                idx === activeSlide ? 'w-3.5 bg-white shadow-xs' : 'w-1.5 bg-white/50'
+              }`}
+            />
+          ))}
+        </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2.5 p-5">
+      {/* Чистая типографика с воздухом под фотографией */}
+      <Link href={`/properties/${id}`} className="flex flex-col gap-0.5 px-0.5 pt-2 sm:pt-3">
+        {/* Первая строка: крупная цена + параметры комнат и площади */}
         <div className="flex items-baseline justify-between gap-2">
-          <p className="truncate text-xl font-bold text-[#2C221E] dark:text-[#F5F3EF]">
+          <p className="shrink-0 whitespace-nowrap text-base font-bold tracking-tight text-[#2C0107] sm:text-xl dark:text-[#FADCD5]">
             {formatPrice(monthlyPrice)}
-            <span className="text-sm font-normal text-[#7A6A5E] dark:text-[#8C8278]"> / мес.</span>
+            <span className="text-[11px] font-normal text-[#845962] sm:text-xs dark:text-[#B08D87]"> / мес.</span>
           </p>
-          {is_good_price && (
-            <span className="shrink-0 whitespace-nowrap rounded-md bg-[#F2F6F2] px-2 py-0.5 text-[11px] font-semibold text-[#3B593B] dark:bg-[#4D724D]/25 dark:text-[#98C498]">
-              Ниже рынка
-            </span>
-          )}
+          <span className="shrink-0 whitespace-nowrap text-xs font-semibold text-[#5A2D36] dark:text-[#DCBAB3]">
+            {rooms}-комн. · {area} м²
+          </span>
         </div>
 
-        <h3 className="line-clamp-2 font-serif text-lg font-medium leading-snug text-[#2C221E] transition group-hover:text-[#B85D3B] dark:text-[#F5F3EF] dark:group-hover:text-[#D4B89C]">
+        {/* Вторая строка: название объекта */}
+        <h3 className="truncate text-sm font-medium text-[#2C0107] transition-colors group-hover:text-[#C42759] dark:text-[#FADCD5]/95 dark:group-hover:text-white">
           {title}
         </h3>
 
-        <p className="text-xs uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
-          {rooms}-комн. · {area} м²
+        {/* Третья строка: приглушенный адрес */}
+        <p className="truncate text-xs text-[#845962] dark:text-[#B08D87]">
+          {address.district}, {formatAddress(address)}
         </p>
 
-        <p className="truncate text-sm text-[#7A6A5E] dark:text-[#8C8278]">
-          <span className="font-medium text-[#3D302A] dark:text-[#D5CEC4]">
-            {address.city}, {address.district}
-          </span>{' '}
-          · {formatAddress(address)}
-        </p>
-
-        <div className="mt-1 flex flex-wrap gap-1.5">
-          {petsAllowed && (
-            <span className="rounded-lg bg-[#F2F6F2] px-2.5 py-0.5 text-xs font-medium text-[#3B593B] dark:bg-white/5 dark:text-[#B8C9B8]">
-              🐾 Можно с питомцами
-            </span>
-          )}
-          {noDeposit && (
-            <span className="rounded-lg bg-[#FAF0EB] px-2.5 py-0.5 text-xs font-medium text-[#8E4226] dark:bg-[#B89778]/15 dark:text-[#D4B89C]">
-              ⚡ Без залога
-            </span>
-          )}
-          {fromOwner && (
-            <span className="rounded-lg bg-[#FBF5ED] px-2.5 py-0.5 text-xs font-medium text-[#785027] dark:bg-white/5 dark:text-[#C7B8A5]">
-              👤 От хозяина
-            </span>
-          )}
-        </div>
-
-        <Link href={`/properties/${id}`} className="mt-auto pt-3">
-          <span className="block rounded-full bg-[#B85D3B] px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-[0.12em] text-white shadow-2xs transition hover:bg-[#9E4B2D] dark:bg-[#B89778] dark:text-[#141312] dark:hover:bg-[#CAB094]">
-            Подробнее и заявка
-          </span>
-        </Link>
-      </div>
+        {/* Четвертая строка: спокойная микро-строка условий вместо тяжелых плашек */}
+        {perks.length > 0 && (
+          <p className="mt-0.5 truncate text-[11px] font-medium text-[#C42759]/85 dark:text-[#DCBAB3]/80">
+            {perks.join(' · ')}
+          </p>
+        )}
+      </Link>
     </article>
   );
 }

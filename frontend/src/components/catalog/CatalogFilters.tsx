@@ -14,9 +14,9 @@ interface Props {
 const parsePrice = (v: string): number | undefined => (v === '' ? undefined : Math.max(0, Number(v)));
 
 const inputCls =
-  'w-full rounded-xl border border-[#E2D6C8] bg-[#FAF6F0]/70 px-3.5 py-2.5 text-sm text-[#2C221E] transition focus:border-[#B85D3B] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B85D3B]/20 dark:border-white/12 dark:bg-[#141312] dark:text-[#F5F3EF] dark:placeholder-[#7A7067] dark:focus:border-[#B89778] dark:focus:bg-[#181614] dark:focus:ring-[#B89778]/20';
+  'min-h-11 w-full rounded-full border border-[#6D3C52]/20 bg-[#FDF5F3] px-4 py-2.5 text-sm text-[#2C0107] shadow-2xs transition-all duration-300 focus:border-[#C42759] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C42759]/20 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:placeholder-[#B08D87] dark:focus:border-[#FADCD5]/45 dark:focus:ring-[#6D3C52]/40';
 
-/** Панель фильтров. Отвечает только за ввод; состояние хранит родитель (контролируемый компонент). */
+/** Обтекаемая панель фильтров с pill-инпутами (rounded-full) и мягкой тенью. */
 export function CatalogFilters({ filter, districts, onChange, onReset }: Props) {
   const [minPrice, setMinPrice] = useState(filter.minPrice?.toString() ?? '');
   const [maxPrice, setMaxPrice] = useState(filter.maxPrice?.toString() ?? '');
@@ -40,13 +40,13 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
 
   return (
     <form
-      className="flex flex-col gap-5 rounded-2xl border border-[#ECE2D6] bg-white p-6 shadow-[0_4px_24px_rgba(44,34,30,0.05)] transition-colors duration-300 dark:border-white/10 dark:bg-[#1C1A18] dark:shadow-[0_12px_36px_rgba(0,0,0,0.35)]"
+      className="flex flex-col gap-4 rounded-2xl border border-[#6D3C52]/12 bg-white p-4 shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:gap-5 sm:rounded-3xl sm:p-6 md:p-7 dark:border-[#FADCD5]/12 dark:bg-[#2D222F] dark:shadow-[0_16px_44px_rgba(11,4,11,0.5)]"
       onSubmit={(e) => e.preventDefault()}
       aria-label="Фильтры каталога"
     >
-      <div className="grid gap-4 sm:grid-cols-[1fr_1fr_1fr_1fr_auto] sm:items-end">
-        <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
-          Район
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] lg:items-end">
+        <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
+          <span className="pl-2">Район</span>
           <select
             className={inputCls}
             value={filter.district ?? ''}
@@ -61,8 +61,8 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
           </select>
         </label>
 
-        <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
-          Цена от, ₸
+        <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
+          <span className="pl-2">Цена от, ₸</span>
           <input
             type="number"
             inputMode="numeric"
@@ -75,23 +75,23 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
           />
         </label>
 
-        <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
-          Цена до, ₸
+        <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
+          <span className="pl-2">Цена до, ₸</span>
           <input
             type="number"
             inputMode="numeric"
             min={0}
             step={5000}
             placeholder="Без ограничений"
-            className={`${inputCls} ${rangeInvalid ? 'border-[#C84B31] dark:border-[#E06C53]' : ''}`}
+            className={`${inputCls} ${rangeInvalid ? 'border-[#C42759]' : ''}`}
             value={maxPrice}
             onChange={(e) => setMaxPrice(e.target.value)}
             aria-invalid={rangeInvalid}
           />
         </label>
 
-        <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#5C4D44] dark:text-[#A8A096]">
-          Сортировка
+        <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
+          <span className="pl-2">Сортировка</span>
           <select
             className={inputCls}
             value={filter.sortBy ?? 'newest'}
@@ -107,22 +107,22 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
         <button
           type="button"
           onClick={onReset}
-          className="rounded-full border border-[#DFD3C3] bg-[#FAF6F0] px-6 py-2.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] transition hover:border-[#B85D3B]/40 hover:bg-[#F3ECE2] dark:border-white/15 dark:bg-[#25221F] dark:text-[#E5E0D8] dark:hover:border-[#B89778] dark:hover:bg-[#2E2A26]"
+          className="min-h-11 w-full rounded-full border border-[#6D3C52]/25 bg-[#FDF5F3] px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-[#2C0107] transition-all duration-300 hover:border-[#C42759] hover:bg-[#FADCD5]/60 sm:col-span-2 lg:col-span-1 lg:w-auto dark:border-[#FADCD5]/20 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:hover:border-[#FADCD5]/45 dark:hover:bg-[#4B2138]"
         >
           Сбросить
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2.5 border-t border-[#F0E7DC] pt-4 text-xs font-medium text-[#3D302A] dark:border-white/10 dark:text-[#D5CEC4]">
-        <span className="mr-1 text-[11px] uppercase tracking-[0.16em] text-[#6B5B50] dark:text-[#8C8278]">
+      <div className="flex flex-wrap items-center gap-2.5 border-t border-[#6D3C52]/10 pt-4 text-xs font-medium dark:border-[#FADCD5]/10">
+        <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#845962] dark:text-[#B08D87]">
           Умные теги:
         </span>
 
         <label
-          className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-3.5 py-1.5 transition-all duration-200 ${
+          className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-4 py-1.5 transition-all duration-300 ${
             filter.petsAllowed
-              ? 'border-[#4D724D] bg-[#4D724D] text-white shadow-xs ring-2 ring-[#4D724D]/25 dark:border-[#6B936B] dark:bg-[#4D724D] dark:text-white'
-              : 'border-[#D5E0D5] bg-[#F2F6F2] text-[#3B593B] hover:border-[#B8CCB8] hover:bg-[#E6EFE6] dark:border-white/12 dark:bg-[#23201D] dark:text-[#B8C9B8] dark:hover:border-[#6B936B]/50'
+              ? 'border-[#C42759] bg-[#C42759] text-white shadow-[0_6px_16px_rgba(196,39,89,0.28)] dark:border-[#6D3C52] dark:bg-[#6D3C52] dark:text-[#FADCD5]'
+              : 'border-[#6D3C52]/20 bg-[#FDF5F3] text-[#550416] hover:border-[#C42759]/50 hover:bg-[#FADCD5]/50 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:hover:bg-[#4B2138]/60'
           }`}
         >
           <input
@@ -131,28 +131,14 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
             onChange={(e) => onChange({ petsAllowed: e.target.checked ? true : undefined })}
             className="sr-only"
           />
-          <svg
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
-            className={`shrink-0 transition-all duration-200 ${
-              filter.petsAllowed ? 'h-3.5 w-3.5 scale-100 opacity-100' : 'h-3.5 w-0 scale-0 opacity-0'
-            }`}
-          >
-            <path
-              fillRule="evenodd"
-              d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
-              clipRule="evenodd"
-            />
-          </svg>
           <span>🐾 Можно с питомцами</span>
         </label>
 
         <label
-          className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-3.5 py-1.5 transition-all duration-200 ${
+          className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-4 py-1.5 transition-all duration-300 ${
             filter.noDeposit
-              ? 'border-[#B85D3B] bg-[#B85D3B] text-white shadow-xs ring-2 ring-[#B85D3B]/25 dark:border-[#B89778] dark:bg-[#B89778] dark:text-[#141312]'
-              : 'border-[#E8CFC4] bg-[#FAF0EB] text-[#8E4226] hover:border-[#D9B3A3] hover:bg-[#F5E6DF] dark:border-white/12 dark:bg-[#23201D] dark:text-[#D4B89C] dark:hover:border-[#B89778]/50'
+              ? 'border-[#C42759] bg-[#C42759] text-white shadow-[0_6px_16px_rgba(196,39,89,0.28)] dark:border-[#6D3C52] dark:bg-[#6D3C52] dark:text-[#FADCD5]'
+              : 'border-[#6D3C52]/20 bg-[#FDF5F3] text-[#550416] hover:border-[#C42759]/50 hover:bg-[#FADCD5]/50 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:hover:bg-[#4B2138]/60'
           }`}
         >
           <input
@@ -161,28 +147,14 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
             onChange={(e) => onChange({ noDeposit: e.target.checked ? true : undefined })}
             className="sr-only"
           />
-          <svg
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
-            className={`shrink-0 transition-all duration-200 ${
-              filter.noDeposit ? 'h-3.5 w-3.5 scale-100 opacity-100' : 'h-3.5 w-0 scale-0 opacity-0'
-            }`}
-          >
-            <path
-              fillRule="evenodd"
-              d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
-              clipRule="evenodd"
-            />
-          </svg>
           <span>⚡ Без залога</span>
         </label>
 
         <label
-          className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-3.5 py-1.5 transition-all duration-200 ${
+          className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-4 py-1.5 transition-all duration-300 ${
             filter.fromOwner
-              ? 'border-[#9C6B3B] bg-[#9C6B3B] text-white shadow-xs ring-2 ring-[#9C6B3B]/25 dark:border-[#C5A585] dark:bg-[#C5A585] dark:text-[#141312]'
-              : 'border-[#E6D6C3] bg-[#FBF5ED] text-[#785027] hover:border-[#D6BFA4] hover:bg-[#F5EBDC] dark:border-white/12 dark:bg-[#23201D] dark:text-[#C7B8A5] dark:hover:border-[#C5A585]/50'
+              ? 'border-[#550416] bg-[#550416] text-white shadow-[0_6px_16px_rgba(85,4,22,0.28)] dark:border-[#4B2138] dark:bg-[#4B2138] dark:text-[#FADCD5]'
+              : 'border-[#6D3C52]/20 bg-[#FDF5F3] text-[#550416] hover:border-[#C42759]/50 hover:bg-[#FADCD5]/50 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:hover:bg-[#4B2138]/60'
           }`}
         >
           <input
@@ -191,26 +163,12 @@ export function CatalogFilters({ filter, districts, onChange, onReset }: Props) 
             onChange={(e) => onChange({ fromOwner: e.target.checked ? true : undefined })}
             className="sr-only"
           />
-          <svg
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
-            className={`shrink-0 transition-all duration-200 ${
-              filter.fromOwner ? 'h-3.5 w-3.5 scale-100 opacity-100' : 'h-3.5 w-0 scale-0 opacity-0'
-            }`}
-          >
-            <path
-              fillRule="evenodd"
-              d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
-              clipRule="evenodd"
-            />
-          </svg>
           <span>👤 От хозяина</span>
         </label>
       </div>
 
       {rangeInvalid && (
-        <p className="text-sm text-[#9E3B24] dark:text-[#E5826C]" role="alert">
+        <p className="text-sm font-medium text-[#C42759] dark:text-[#FADCD5]" role="alert">
           Минимальная цена не может превышать максимальную.
         </p>
       )}

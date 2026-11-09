@@ -12,7 +12,7 @@ interface LocationPickerMapProps {
 }
 
 const pickerPinIcon = L.divIcon({
-  html: `<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:var(--accent-primary, #B85D3B);color:#141312;font-weight:700;font-size:16px;border:3px solid var(--bg-card, #FAF6F0);box-shadow:0 6px 18px rgba(0,0,0,0.45);">📍</div>`,
+  html: `<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:var(--accent-primary, #C42759);color:#FADCD5;font-weight:700;font-size:16px;border:3px solid var(--bg-card, #FFFFFF);box-shadow:0 6px 18px rgba(27,12,26,0.45);">📍</div>`,
   className: 'location-picker-marker',
   iconSize: [32, 32],
   iconAnchor: [16, 16],
@@ -68,14 +68,14 @@ export default function LocationPickerMap({
   const safeLng = Number.isFinite(longitude) ? longitude : 82.618;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[#E2D6C8] bg-[#FAF6F0] dark:border-white/15 dark:bg-[#141312]">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2D6C8] bg-[#FAF6F0] px-3.5 py-2 text-[11px] text-[#6B5B50] dark:border-white/10 dark:bg-[#181614] dark:text-[#A8A096]">
+    <div className="w-full max-w-full overflow-hidden rounded-2xl border border-[#6D3C52]/20 bg-[#FDF5F3] shadow-sm transition-colors duration-300 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#6D3C52]/12 bg-[#FDF5F3] px-3.5 py-2.5 text-[11px] text-[#5A2D36] sm:px-4 dark:border-[#FADCD5]/12 dark:bg-[#241423] dark:text-[#DCBAB3]">
         <span>Кликните по карте или перетащите маркер 📍 для выбора точки</span>
-        <span className="font-mono font-medium text-[#2C221E] dark:text-[#D4B89C]">
+        <span className="rounded-full bg-[#FADCD5]/70 px-2.5 py-0.5 font-mono font-semibold text-[#550416] dark:bg-[#6D3C52] dark:text-[#FADCD5]">
           {safeLat.toFixed(6)}, {safeLng.toFixed(6)}
         </span>
       </div>
-      <div className="h-56 w-full">
+      <div className="h-52 w-full sm:h-56">
         <MapContainer
           center={[safeLat, safeLng]}
           zoom={13}

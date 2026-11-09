@@ -62,22 +62,22 @@ export default function FavoritesPage() {
   );
 
   return (
-    <main className="mx-auto flex max-w-7xl flex-col gap-10 px-6 py-14 lg:px-8 lg:py-20">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[#E8DFD3] pb-6 dark:border-white/10">
+    <main className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-10 md:gap-10 md:px-8 md:py-14 lg:py-20">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[#6D3C52]/12 pb-6 dark:border-[#FADCD5]/12">
         <div>
-          <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#B85D3B] dark:text-[#B89778]">
+          <span className="inline-block rounded-full bg-[#FADCD5] px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#550416] dark:bg-[#2D222F] dark:text-[#FADCD5]">
             Персональная подборка
           </span>
-          <h1 className="mt-2 font-serif text-3xl font-normal text-[#2C221E] sm:text-4xl dark:text-[#F5F3EF]">
-            Избранные <span className="italic text-[#B85D3B] dark:text-[#B89778]">резиденции</span> ({favorites.length})
+          <h1 className="mt-3 font-serif text-2xl font-normal text-[#2C0107] sm:text-4xl dark:text-[#FADCD5]">
+            Избранные <span className="italic text-[#C42759] dark:text-[#dcbab3]">резиденции</span> ({favorites.length})
           </h1>
-          <p className="mt-2 text-sm text-[#6B5B50] dark:text-[#A8A096]">
+          <p className="mt-2 text-sm text-[#5A2D36] dark:text-[#DCBAB3]">
             Сохранённые объявления для вдумчивого сравнения и подачи заявок
           </p>
         </div>
         <Link
           href="/catalog"
-          className="text-xs font-medium uppercase tracking-[0.16em] text-[#B85D3B] transition hover:underline dark:text-[#D4B89C]"
+          className="rounded-full border border-[#6D3C52]/20 bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#2C0107] shadow-2xs transition-all duration-300 hover:border-[#C42759] hover:text-[#C42759] dark:border-[#FADCD5]/15 dark:bg-[#2D222F] dark:text-[#FADCD5] dark:hover:bg-[#6D3C52]"
         >
           ← Вернуться в каталог
         </Link>
@@ -85,7 +85,7 @@ export default function FavoritesPage() {
 
       {error && (
         <div
-          className="rounded-2xl border border-[#E8C5B8] bg-[#FDF2EE] p-4 text-sm text-[#9E3B24] dark:border-[#E06C53]/30 dark:bg-[#2A1916] dark:text-[#F29B88]"
+          className="rounded-2xl border border-[#C42759]/30 bg-[#FADCD5]/55 p-4 text-sm text-[#550416] sm:rounded-3xl dark:border-[#FADCD5]/20 dark:bg-[#4B2138] dark:text-[#FADCD5]"
           role="alert"
         >
           {error}
@@ -93,28 +93,28 @@ export default function FavoritesPage() {
       )}
 
       {loading ? (
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-96 animate-pulse rounded-2xl bg-[#EFE7DC] dark:bg-[#1E1C1A]" />
+            <div key={i} className="h-96 animate-pulse rounded-2xl bg-[#FADCD5]/50 sm:rounded-3xl dark:bg-[#2D222F]" />
           ))}
         </div>
       ) : favorites.length === 0 ? (
-        <div className="rounded-2xl border border-[#ECE2D6] bg-white p-16 text-center shadow-[0_4px_24px_rgba(44,34,30,0.04)] dark:border-white/10 dark:bg-[#1C1A18]">
-          <p className="font-serif text-2xl font-normal text-[#2C221E] dark:text-[#F5F3EF]">
+        <div className="rounded-2xl border border-[#6D3C52]/12 bg-white p-8 text-center shadow-[0_14px_40px_rgba(44,1,7,0.06)] sm:rounded-3xl sm:p-16 dark:border-[#FADCD5]/12 dark:bg-[#2D222F] dark:shadow-[0_16px_44px_rgba(11,4,11,0.5)]">
+          <p className="font-serif text-xl font-normal text-[#2C0107] sm:text-2xl dark:text-[#FADCD5]">
             В избранном пока нет объектов
           </p>
-          <p className="mt-2 text-sm text-[#6B5B50] dark:text-[#A8A096]">
+          <p className="mt-2 text-sm text-[#5A2D36] dark:text-[#DCBAB3]">
             Нажмите на иконку сердечка на любой карточке в каталоге, чтобы сохранить понравившуюся резиденцию.
           </p>
           <Link
             href="/catalog"
-            className="mt-6 inline-block rounded-full bg-[#B85D3B] px-7 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-xs transition hover:bg-[#9E4B2D] dark:bg-[#B89778] dark:text-[#141312] dark:hover:bg-[#CAB094]"
+            className="mt-6 inline-block rounded-full bg-[#C42759] px-7 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-[0_8px_22px_rgba(196,39,89,0.28)] transition-all duration-300 hover:bg-[#550416] dark:bg-[#6D3C52] dark:text-[#FADCD5] dark:hover:bg-[#4B2138]"
           >
             Перейти в каталог
           </Link>
         </div>
       ) : (
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-3 xl:grid-cols-4">
           {favorites.map((p) => (
             <PropertyCard
               key={p.id}

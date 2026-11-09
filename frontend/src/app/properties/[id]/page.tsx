@@ -13,14 +13,14 @@ import { Property } from '@/types/property';
 const PropertyDetailMap = dynamic(() => import('@/components/property/PropertyDetailMap'), {
   ssr: false,
   loading: () => (
-    <div className="mt-7 flex h-72 items-center justify-center rounded-2xl border border-[#ECE2D6] bg-[#FAF6F0] text-xs text-[#6B5B50] dark:border-white/10 dark:bg-[#141312] dark:text-[#A8A096]">
+    <div className="mt-8 flex h-72 items-center justify-center rounded-3xl border border-[#6D3C52]/12 bg-[#FDF5F3] text-xs text-[#5A2D36] dark:border-[#FADCD5]/12 dark:bg-[#1B0C1A] dark:text-[#DCBAB3]">
       Загрузка интерактивной карты объекта...
     </div>
   ),
 });
 
 const inputCls =
-  'rounded-xl border border-[#E2D6C8] bg-[#FAF6F0]/70 px-3.5 py-2.5 text-sm font-normal text-[#2C221E] transition focus:border-[#B85D3B] focus:bg-white focus:outline-none disabled:bg-[#F3ECE2] dark:border-white/12 dark:bg-[#141312] dark:text-[#F5F3EF] dark:focus:border-[#B89778] dark:focus:bg-[#181614] dark:disabled:bg-[#221F1C] dark:disabled:opacity-60';
+  'w-full rounded-full border border-[#6D3C52]/20 bg-[#FDF5F3] px-4 py-2.5 text-sm font-normal text-[#2C0107] transition-all duration-300 focus:border-[#C42759] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C42759]/20 disabled:opacity-50 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:focus:border-[#FADCD5]/45 dark:focus:ring-[#6D3C52]/40';
 
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
@@ -122,14 +122,14 @@ export default function PropertyDetailPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl px-6 py-16 text-sm text-[#6B5B50] dark:text-[#A8A096]">
+      <div className="mx-auto max-w-5xl px-4 py-12 text-sm text-[#5A2D36] md:px-8 md:py-16 dark:text-[#DCBAB3]">
         Загрузка резиденции...
       </div>
     );
   }
   if (error || !property) {
     return (
-      <div className="mx-auto max-w-5xl px-6 py-16 text-sm text-[#9E3B24] dark:text-[#F29B88]">
+      <div className="mx-auto max-w-5xl px-4 py-12 text-sm text-[#C42759] md:px-8 md:py-16 dark:text-[#FADCD5]">
         Ошибка: {error ?? 'Объект не найден'}
       </div>
     );
@@ -138,17 +138,17 @@ export default function PropertyDetailPage() {
   const imgSrc = resolvePropertyImageUrl(property.image_url, property.id);
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-12 lg:py-20">
+    <main className="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-12 lg:py-20">
       <Link
         href="/catalog"
-        className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.16em] text-[#B85D3B] transition hover:underline dark:text-[#D4B89C]"
+        className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#6D3C52]/20 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#2C0107] shadow-2xs transition-all duration-300 hover:border-[#C42759] hover:text-[#C42759] dark:border-[#FADCD5]/15 dark:bg-[#2D222F] dark:text-[#FADCD5] dark:hover:bg-[#6D3C52]"
       >
         ← Назад в каталог
       </Link>
 
-      <div className="mt-8 grid gap-8 md:grid-cols-[1.5fr_1fr]">
-        <div className="overflow-hidden rounded-2xl border border-[#ECE2D6] bg-white shadow-[0_4px_24px_rgba(44,34,30,0.05)] transition-colors duration-300 dark:border-white/10 dark:bg-[#1C1A18] dark:shadow-[0_16px_44px_rgba(0,0,0,0.45)]">
-          <div className="relative h-80 w-full bg-[#EFE6DC] dark:bg-[#25221F]">
+      <div className="mt-6 grid grid-cols-1 gap-6 md:mt-8 md:gap-8 lg:grid-cols-[1.5fr_1fr]">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-[#6D3C52]/12 bg-white shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl dark:border-[#FADCD5]/12 dark:bg-[#2D222F] dark:shadow-[0_18px_48px_rgba(11,4,11,0.55)]">
+          <div className="relative h-64 w-full overflow-hidden rounded-t-2xl bg-[#FADCD5]/40 sm:h-80 sm:rounded-t-3xl md:h-96 dark:bg-[#1B0C1A]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imgSrc}
@@ -159,18 +159,18 @@ export default function PropertyDetailPage() {
                   target.src = FALLBACK_UNSPLASH_URLS[0];
                 }
               }}
-              className="h-80 w-full object-cover"
+              className="h-full w-full rounded-t-2xl object-cover sm:rounded-t-3xl"
             />
           </div>
 
-          <div className="p-8">
+          <div className="p-4 sm:p-6 md:p-8">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-[#F5E6DF] px-3.5 py-1 text-xs font-medium uppercase tracking-wider text-[#9E4B2D] dark:border dark:border-[#B89778]/30 dark:bg-[#B89778]/15 dark:text-[#D4B89C]">
+                <span className="rounded-full bg-[#FADCD5] px-4 py-1 text-xs font-semibold uppercase tracking-wider text-[#550416] dark:bg-[#6D3C52] dark:text-[#FADCD5]">
                   {property.type.name} · {property.status}
                 </span>
                 {property.is_good_price && (
-                  <span className="rounded-full bg-[#4D724D] px-3.5 py-1 text-xs font-semibold text-white">
+                  <span className="rounded-full bg-[#C42759] px-4 py-1 text-xs font-semibold text-white shadow-sm dark:bg-[#4B2138] dark:text-[#FADCD5]">
                     🔥 Хорошая цена (ниже рынка по р-ну {property.address.district})
                   </span>
                 )}
@@ -180,28 +180,29 @@ export default function PropertyDetailPage() {
                 <button
                   type="button"
                   onClick={handleToggleFavorite}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-medium transition ${
+                  className={`inline-flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold transition-all duration-300 ${
                     isFavorite
-                      ? 'border-[#E8CFC4] bg-[#FAF0EB] text-[#B85D3B] dark:border-[#B89778] dark:bg-[#B89778]/20 dark:text-[#D4B89C]'
-                      : 'border-[#E2D6C8] bg-[#FAF6F0] text-[#3D302A] hover:border-[#B85D3B]/40 dark:border-white/15 dark:bg-[#25221F] dark:text-[#E5E0D8] dark:hover:border-[#B89778]'
+                      ? 'border-[#C42759] bg-[#C42759] text-white shadow-sm dark:border-[#6D3C52] dark:bg-[#6D3C52] dark:text-[#FADCD5]'
+                      : 'border-[#6D3C52]/20 bg-[#FDF5F3] text-[#2C0107] hover:border-[#C42759] dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:hover:bg-[#4B2138]'
                   }`}
                 >
-                  <span className={isFavorite ? 'text-[#B85D3B] dark:text-[#D4B89C]' : 'text-[#8E7D70]'}>♥</span>
-                  {isFavorite ? 'В избранном' : 'В избранное'}
+                  <span>♥</span>
+                  <span>{isFavorite ? 'В избранном' : 'В избранное'}</span>
                 </button>
               )}
             </div>
 
-            <h1 className="mt-5 font-serif text-3xl font-normal text-[#2C221E] sm:text-4xl dark:text-[#F5F3EF]">
+            <h1 className="mt-5 font-serif text-3xl font-normal text-[#2C0107] sm:text-4xl dark:text-[#FADCD5]">
               {property.title}
             </h1>
+
             <div className="mt-3 flex flex-wrap items-baseline gap-3">
-              <p className="text-2xl font-bold text-[#B85D3B] dark:text-[#D4B89C]">
+              <p className="shrink-0 whitespace-nowrap text-2xl font-bold text-[#C42759] dark:text-[#FADCD5]">
                 {formatPrice(property.monthlyPrice)}{' '}
-                <span className="text-sm font-normal text-[#7A6A5E] dark:text-[#8C8278]">/ мес.</span>
+                <span className="whitespace-nowrap text-sm font-normal text-[#845962] dark:text-[#B08D87]">/ мес.</span>
               </p>
               {property.districtAvgPrice && (
-                <span className="text-xs text-[#6B5B50] dark:text-[#A8A096]">
+                <span className="rounded-full bg-[#FADCD5]/50 px-3 py-1 text-xs text-[#5A2D36] dark:bg-[#1B0C1A]/60 dark:text-[#DCBAB3]">
                   Средняя по р-ну {property.address.district}: {formatPrice(property.districtAvgPrice)}
                 </span>
               )}
@@ -209,41 +210,47 @@ export default function PropertyDetailPage() {
 
             <div className="mt-5 flex flex-wrap gap-2">
               {property.petsAllowed && (
-                <span className="rounded-xl bg-[#F2F6F2] px-3 py-1 text-xs font-medium text-[#3B593B] dark:bg-white/5 dark:text-[#B8C9B8]">
+                <span className="rounded-full bg-[#FADCD5]/65 px-3.5 py-1 text-xs font-medium text-[#550416] dark:bg-[#1B0C1A]/70 dark:text-[#FADCD5]">
                   🐾 Можно с питомцами
                 </span>
               )}
               {property.noDeposit && (
-                <span className="rounded-xl bg-[#FAF0EB] px-3 py-1 text-xs font-medium text-[#8E4226] dark:bg-[#B89778]/15 dark:text-[#D4B89C]">
+                <span className="rounded-full bg-[#FADCD5]/65 px-3.5 py-1 text-xs font-medium text-[#550416] dark:bg-[#6D3C52]/50 dark:text-[#FADCD5]">
                   ⚡ Без залога
                 </span>
               )}
               {property.fromOwner && (
-                <span className="rounded-xl bg-[#FBF5ED] px-3 py-1 text-xs font-medium text-[#785027] dark:bg-white/5 dark:text-[#C7B8A5]">
+                <span className="rounded-full bg-[#D8D6D7]/60 px-3.5 py-1 text-xs font-medium text-[#2C0107] dark:bg-[#4B2138]/70 dark:text-[#FADCD5]">
                   👤 От хозяина
                 </span>
               )}
             </div>
 
-            <dl className="mt-6 grid grid-cols-2 gap-4 rounded-xl border border-[#ECE2D6] bg-[#FAF6F0] p-5 text-sm dark:border-white/10 dark:bg-[#141312]">
+            <dl className="mt-6 grid grid-cols-2 gap-4 rounded-2xl border border-[#6D3C52]/12 bg-[#FDF5F3] p-5 text-sm dark:border-[#FADCD5]/12 dark:bg-[#1B0C1A]">
               <div>
-                <dt className="text-[11px] uppercase tracking-wider text-[#7A6A5E] dark:text-[#8C8278]">Комнат</dt>
-                <dd className="mt-1 font-medium text-[#2C221E] dark:text-[#F5F3EF]">{property.rooms}</dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-[#845962] dark:text-[#B08D87]">
+                  Комнат
+                </dt>
+                <dd className="mt-1 font-semibold text-[#2C0107] dark:text-[#FADCD5]">{property.rooms}</dd>
               </div>
               <div>
-                <dt className="text-[11px] uppercase tracking-wider text-[#7A6A5E] dark:text-[#8C8278]">Площадь</dt>
-                <dd className="mt-1 font-medium text-[#2C221E] dark:text-[#F5F3EF]">{property.area} м²</dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-[#845962] dark:text-[#B08D87]">
+                  Площадь
+                </dt>
+                <dd className="mt-1 font-semibold text-[#2C0107] dark:text-[#FADCD5]">{property.area} м²</dd>
               </div>
-              <div className="col-span-2 border-t border-[#E6DDD2] pt-3 dark:border-white/10">
-                <dt className="text-[11px] uppercase tracking-wider text-[#7A6A5E] dark:text-[#8C8278]">Адрес</dt>
-                <dd className="mt-1 font-medium text-[#2C221E] dark:text-[#F5F3EF]">
+              <div className="col-span-2 border-t border-[#6D3C52]/12 pt-3 dark:border-[#FADCD5]/12">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-[#845962] dark:text-[#B08D87]">
+                  Адрес
+                </dt>
+                <dd className="mt-1 font-semibold text-[#2C0107] dark:text-[#FADCD5]">
                   {property.address.city}, р-н {property.address.district}, {formatAddress(property.address)}
                 </dd>
               </div>
             </dl>
 
             {property.description && (
-              <p className="mt-6 text-sm leading-relaxed text-[#5C4D44] dark:text-[#B8B0A6]">{property.description}</p>
+              <p className="mt-6 text-sm leading-relaxed text-[#5A2D36] dark:text-[#DCBAB3]">{property.description}</p>
             )}
 
             {/* Интерактивная карта расположения объекта с попапом-миниатюрой */}
@@ -253,17 +260,17 @@ export default function PropertyDetailPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-4 self-start rounded-2xl border border-[#ECE2D6] bg-white p-8 shadow-[0_4px_24px_rgba(44,34,30,0.05)] transition-colors duration-300 dark:border-white/10 dark:bg-[#1C1A18] dark:shadow-[0_16px_44px_rgba(0,0,0,0.45)]"
+          className="flex flex-col gap-4 self-start rounded-2xl border border-[#6D3C52]/12 bg-white p-5 shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl sm:p-6 md:p-8 dark:border-[#FADCD5]/12 dark:bg-[#2D222F] dark:shadow-[0_18px_48px_rgba(11,4,11,0.55)]"
         >
-          <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#B85D3B] dark:text-[#B89778]">
+          <span className="self-start rounded-full bg-[#FADCD5] px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#550416] dark:bg-[#6D3C52] dark:text-[#FADCD5]">
             Бронирование
           </span>
-          <h2 className="font-serif text-2xl font-normal text-[#2C221E] dark:text-[#F5F3EF]">
-            Оставить <span className="italic text-[#B85D3B] dark:text-[#B89778]">заявку</span>
+          <h2 className="font-serif text-2xl font-normal text-[#2C0107] dark:text-[#FADCD5]">
+            Оставить <span className="italic text-[#C42759] dark:text-[#dcbab3]">заявку</span>
           </h2>
 
           {!user && (
-            <div className="rounded-xl border border-[#E8CFC4] bg-[#F5E6DF] p-3.5 text-xs leading-relaxed text-[#7A3821] dark:border-[#B89778]/30 dark:bg-[#B89778]/15 dark:text-[#D4B89C]">
+            <div className="rounded-2xl border border-[#C42759]/20 bg-[#FADCD5]/55 p-4 text-xs leading-relaxed text-[#550416] dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5]">
               Вы просматриваете объект как гость. При нажатии кнопки «Оставить заявку» вы будете перенаправлены на
               страницу входа.
             </div>
@@ -271,7 +278,7 @@ export default function PropertyDetailPage() {
 
           {isOwner && (
             <div
-              className="rounded-xl bg-[#FBF5ED] p-3.5 text-sm text-[#785027] dark:bg-white/5 dark:text-[#D4B89C]"
+              className="rounded-2xl bg-[#FADCD5]/65 p-4 text-sm text-[#550416] dark:bg-[#4B2138] dark:text-[#FADCD5]"
               role="alert"
             >
               Это ваш объект недвижимости. Подача заявки на собственный объект запрещена.
@@ -280,15 +287,15 @@ export default function PropertyDetailPage() {
 
           {!isOwner && isLandlord && (
             <div
-              className="rounded-xl bg-[#FBF5ED] p-3.5 text-sm text-[#785027] dark:bg-white/5 dark:text-[#D4B89C]"
+              className="rounded-2xl bg-[#FADCD5]/65 p-4 text-sm text-[#550416] dark:bg-[#4B2138] dark:text-[#FADCD5]"
               role="alert"
             >
               Подача заявок доступна только пользователям с ролью TENANT (арендатор).
             </div>
           )}
 
-          <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
-            Желаемая дата заселения
+          <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
+            <span className="pl-2">Желаемая дата заселения</span>
             <input
               type="date"
               required
@@ -299,8 +306,8 @@ export default function PropertyDetailPage() {
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
-            Срок аренды (мес.)
+          <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
+            <span className="pl-2">Срок аренды (мес.)</span>
             <input
               type="number"
               min={1}
@@ -313,24 +320,24 @@ export default function PropertyDetailPage() {
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wider text-[#3D302A] dark:text-[#C7BFB5]">
-            Сообщение арендодателю
+          <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
+            <span className="pl-2">Сообщение арендодателю</span>
             <textarea
               rows={3}
               disabled={isOwner || isLandlord}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className={inputCls}
+              className="w-full rounded-2xl border border-[#6D3C52]/20 bg-[#FDF5F3] px-4 py-3 text-sm font-normal text-[#2C0107] transition-all duration-300 focus:border-[#C42759] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C42759]/20 disabled:opacity-50 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:focus:border-[#FADCD5]/45"
             />
           </label>
 
           {submitResult && (
-            <p className="rounded-xl bg-[#F2F6F2] p-3.5 text-sm text-[#3B593B] dark:bg-[#4D724D]/25 dark:text-[#A3CFA3]">
+            <p className="rounded-2xl bg-[#FADCD5] p-3.5 text-sm font-medium text-[#550416] dark:bg-[#6D3C52] dark:text-[#FADCD5]">
               {submitResult}
             </p>
           )}
           {submitError && (
-            <p className="rounded-xl bg-[#FDF2EE] p-3.5 text-sm text-[#9E3B24] dark:bg-[#2A1916] dark:text-[#F29B88]">
+            <p className="rounded-2xl bg-[#FADCD5]/70 p-3.5 text-sm font-medium text-[#C42759] dark:bg-[#4B2138] dark:text-[#FADCD5]">
               {submitError}
             </p>
           )}
@@ -338,7 +345,7 @@ export default function PropertyDetailPage() {
           <button
             type="submit"
             disabled={submitting || isOwner || isLandlord || property.status !== 'AVAILABLE'}
-            className="mt-2 rounded-full bg-[#B85D3B] px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-xs transition hover:bg-[#9E4B2D] disabled:opacity-50 dark:bg-[#B89778] dark:text-[#141312] dark:hover:bg-[#CAB094]"
+            className="mt-2 rounded-full bg-[#C42759] px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-[0_8px_22px_rgba(196,39,89,0.28)] transition-all duration-300 hover:bg-[#550416] disabled:opacity-50 dark:bg-[#6D3C52] dark:text-[#FADCD5] dark:shadow-[0_8px_22px_rgba(0,0,0,0.4)] dark:hover:bg-[#4B2138]"
           >
             {submitting ? 'Отправка...' : 'Оставить заявку'}
           </button>

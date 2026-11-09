@@ -1,26 +1,29 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCatalogFilters } from '@/hooks/useCatalogFilters';
 import { useProperties } from '@/hooks/useProperties';
 import { PAGE_SIZE, propertiesApi } from '@/lib/api/properties.api';
 import { getSessionUser, getToken } from '@/lib/auth';
+import { FALLBACK_UNSPLASH_URLS, formatAddress, formatPrice, resolvePropertyImageUrl } from '@/lib/format';
+import { isPropertyInPolygon } from '@/lib/geo/turf';
 import { Property } from '@/types/property';
 import { CatalogFilters } from './CatalogFilters';
+import type { LatLngTuple } from './CatalogMap';
 import { PropertyCard } from './PropertyCard';
 
 const CatalogMap = dynamic(() => import('./CatalogMap'), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[420px] items-center justify-center rounded-2xl bg-[#F3ECE2] text-sm text-[#6B5B50] dark:bg-[#1C1A18] dark:text-[#A8A096]">
+    <div className="flex h-[340px] items-center justify-center rounded-2xl bg-[#FADCD5]/35 text-xs text-[#5A2D36] sm:h-[420px] sm:rounded-3xl dark:bg-[#2D222F] dark:text-[#DCBAB3]">
       Загрузка интерактивной карты...
     </div>
   ),
 });
 
-/** Контейнер каталога: связывает фильтры (URL), карту с кластеризацией, избранное, загрузку данных и отображение. */
 export function Catalog() {
   const router = useRouter();
   const { filter, setFilter, resetFilter } = useCatalogFilters();
@@ -28,11 +31,16 @@ export function Catalog() {
   const [districts, setDistricts] = useState<string[]>([]);
   const [mapProperties, setMapProperties] = useState<Property[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRoomsChip, setSelectedRoomsChip] = useState<number | null>(null);
+  const [drawnPolygon, setDrawnPolygon] = useState<LatLngTuple[] | null>(null);
+  const [showFullFilters, setShowFullFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'feed' | 'map'>('feed');
+
   const isFirstRender = useRef(true);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // При смене страницы плавно прокручиваем к началу сетки карточек (а не к верху сайта).
-  // scroll-margin-top на контейнере компенсирует высоту sticky-шапки.
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -41,6 +49,16 @@ export function Catalog() {
     const grid = gridRef.current ?? document.getElementById('properties-grid');
     grid?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [filter.page]);
+
+  // Полноэкранная карта на мобильных: прокручиваем к началу и блокируем скролл страницы,
+  // чтобы жесты на карте не «утягивали» страницу вниз.
+  useEffect(() => {
+    if (viewMode !== 'map') return;
+    if (window.innerWidth >= 768) return;
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    document.documentElement.classList.add('map-fullscreen-lock');
+    return () => document.documentElement.classList.remove('map-fullscreen-lock');
+  }, [viewMode]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -100,9 +118,7 @@ export function Catalog() {
         router.push('/login?redirect=/catalog');
         return;
       }
-      if (user.role !== 'TENANT') {
-        return;
-      }
+      if (user.role !== 'TENANT') return;
 
       const isCurrentlyFav = favoriteIds.has(propertyId);
       setFavoriteIds((prev) => {
@@ -130,227 +146,566 @@ export function Catalog() {
     [favoriteIds, router],
   );
 
+  // Фильтрация по строке поиска и комнатности (до гео-фильтрации полигоном)
+  const filterBySearchAndRooms = useCallback(
+    (items: Property[]) => {
+      const q = searchQuery.trim().toLowerCase();
+      return items.filter((p) => {
+        if (selectedRoomsChip !== null) {
+          if (selectedRoomsChip === 3 ? p.rooms < 3 : p.rooms !== selectedRoomsChip) {
+            return false;
+          }
+        }
+        if (!q) return true;
+        const haystack = `${p.title} ${p.address.city} ${p.address.district} ${p.address.street}`.toLowerCase();
+        return haystack.includes(q);
+      });
+    },
+    [searchQuery, selectedRoomsChip],
+  );
+
+  // Базовый пул объектов (до фильтрации нарисованной областью)
+  const poolBeforePolygon = useMemo(
+    () => filterBySearchAndRooms(mapProperties.length > 0 ? mapProperties : (data?.items ?? [])),
+    [filterBySearchAndRooms, mapProperties, data?.items],
+  );
+
+  // Итоговый пул объектов с учетом нарисованного на карте многоугольника (Turf booleanPointInPolygon)
+  const allFeedPool = useMemo(() => {
+    if (!drawnPolygon || drawnPolygon.length < 3) return poolBeforePolygon;
+    return poolBeforePolygon.filter((p) => isPropertyInPolygon(p, drawnPolygon));
+  }, [poolBeforePolygon, drawnPolygon]);
+
+  const hasPolygonFilter = Boolean(drawnPolygon && drawnPolygon.length >= 3);
+
+  // Проверяем, включен ли сейчас узкий пользовательский фильтр, поиск или нарисованная гео-область
+  const hasActiveNarrowFilter = Boolean(
+    searchQuery.trim() ||
+      selectedRoomsChip !== null ||
+      hasPolygonFilter ||
+      filter.district ||
+      filter.minPrice ||
+      filter.maxPrice ||
+      filter.petsAllowed ||
+      filter.noDeposit ||
+      filter.fromOwner ||
+      filter.page > 1,
+  );
+
+  // Отбираем в верхнюю витрину ТОЛЬКО объекты со спец-метками ("Ниже рынка" или "Без залога от хозяина")
+  const specialDeals = useMemo(() => {
+    return allFeedPool.filter((p) => p.is_good_price || (p.fromOwner && p.noDeposit)).slice(0, 6);
+  }, [allFeedPool]);
+
+  const spotlightDeal = specialDeals[0] ?? null;
+  const storyDeals = useMemo(() => specialDeals.slice(1, 6), [specialDeals]);
+
+  // Жизненная логика без дублей и с поддержкой фильтра по нарисованной зоне
+  const displayedGridItems = useMemo(() => {
+    if (hasPolygonFilter) {
+      return allFeedPool;
+    }
+    const raw = filterBySearchAndRooms(data?.items ?? []);
+    if (!hasActiveNarrowFilter && specialDeals.length > 0 && allFeedPool.length > specialDeals.length + 2) {
+      const showcasedIds = new Set(specialDeals.map((d) => d.id));
+      const deduplicated = allFeedPool.filter((p) => !showcasedIds.has(p.id));
+      if (deduplicated.length >= 4) {
+        return deduplicated.slice(0, PAGE_SIZE);
+      }
+    }
+    return raw;
+  }, [hasPolygonFilter, allFeedPool, filterBySearchAndRooms, data?.items, hasActiveNarrowFilter, specialDeals]);
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+  const isUnder200k = filter.maxPrice === 200000;
 
   return (
-    <div className="flex flex-col">
-      {/* Секция 1: Editorial Hero + Панель фильтрации */}
-      <section className="border-b border-[#E8DFD3] bg-[#FAF6F0] py-14 transition-colors duration-300 lg:py-20 dark:border-white/10 dark:bg-[#141312]">
-        <div className="mx-auto flex max-w-7xl flex-col gap-10 px-6 lg:px-8">
-          <header className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-            <div className="max-w-3xl">
-              <span className="inline-block text-[11px] font-medium uppercase tracking-[0.22em] text-[#B85D3B] dark:text-[#B89778]">
-                Восточно-Казахстанская область · Кураторская коллекция жилья
-              </span>
-              <h1 className="mt-4 font-serif text-4xl font-normal leading-[1.15] tracking-tight text-[#2C221E] sm:text-5xl lg:text-[54px] dark:text-[#F5F3EF]">
-                Почувствуйте уют и откройте свой{' '}
-                <span className="italic text-[#B85D3B] dark:text-[#B89778]">баланс комфорта.</span>
-              </h1>
-              <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#6B5B50] dark:text-[#A8A096]">
-                Проверенные квартиры, видовые апартаменты и авторские резиденции для долгосрочной аренды в
-                Усть-Каменогорске и Риддере с прямым оформлением договора.
-              </p>
+    <div className="relative flex flex-col pb-12">
+      {/* Компактная фиксированная панель поиска и быстрых таблеток-фильтров */}
+      <div className="sticky top-12 z-30 bg-[#FDF5F3]/95 py-1.5 backdrop-blur-xl transition-colors duration-300 md:top-16 md:py-2.5 dark:bg-[#1B0C1A]/95">
+        <div className="mx-auto flex max-w-7xl flex-col gap-1.5 px-3.5 md:gap-2 md:px-8">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="relative flex-1">
+              <svg
+                className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#845962] sm:h-4 sm:w-4 dark:text-[#B08D87]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+                />
+              </svg>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Улица, район или ЖК..."
+                className="h-9 w-full rounded-full bg-white pl-9 pr-8 text-xs text-[#2C0107] shadow-[0_3px_14px_rgba(44,1,7,0.06)] transition focus:ring-2 focus:ring-[#C42759]/35 focus:outline-none sm:h-10 sm:pl-10 sm:text-sm dark:bg-[#2D222F] dark:text-[#FADCD5] dark:placeholder-[#B08D87] dark:shadow-[0_4px_16px_rgba(0,0,0,0.35)]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Очистить поиск"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#845962] hover:text-[#2C0107] dark:text-[#B08D87] dark:hover:text-[#FADCD5]"
+                >
+                  ✕
+                </button>
+              )}
             </div>
-            {data && (
-              <div className="self-start rounded-full border border-[#E2D6C8] bg-white px-5 py-2.5 text-xs font-medium uppercase tracking-[0.14em] text-[#5C4D44] shadow-2xs lg:self-end dark:border-white/12 dark:bg-[#1C1A18] dark:text-[#C7BFB5]">
-                Найдено резиденций:{' '}
-                <span className="font-bold text-[#B85D3B] dark:text-[#D4B89C]">{data.total}</span>
-              </div>
-            )}
-          </header>
 
-          <CatalogFilters filter={filter} districts={districts} onChange={setFilter} onReset={resetFilter} />
-        </div>
-      </section>
-
-      {/* Секция 2: Каталог карточек и Пагинация */}
-      <section className="bg-[#FAF6F0] py-14 transition-colors duration-300 lg:py-20 dark:bg-[#141312]">
-        <div className="mx-auto flex max-w-7xl flex-col gap-10 px-6 lg:px-8">
-          <div className="flex flex-wrap items-baseline justify-between gap-4 border-b border-[#E8DFD3] pb-5 dark:border-white/10">
-            <div>
-              <span className="block text-[11px] font-medium uppercase tracking-[0.2em] text-[#B85D3B] dark:text-[#B89778]">
-                Избранные предложения
-              </span>
-              <h2 className="mt-1 font-serif text-3xl font-normal text-[#2C221E] dark:text-[#F5F3EF]">
-                Доступные <span className="italic text-[#B85D3B] dark:text-[#B89778]">резиденции</span>
-              </h2>
-            </div>
-            {data && (
-              <span className="text-xs font-medium uppercase tracking-[0.16em] text-[#6B5B50] dark:text-[#8C8278]">
-                Страница {filter.page} из {totalPages}
-              </span>
-            )}
-          </div>
-
-          {error && (
-            <div
-              className="rounded-2xl border border-[#E8C5B8] bg-[#FDF2EE] p-5 text-sm text-[#9E3B24] dark:border-[#E06C53]/30 dark:bg-[#2A1916] dark:text-[#F29B88]"
-              role="alert"
+            <button
+              type="button"
+              onClick={() => setShowFullFilters((prev) => !prev)}
+              className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition sm:h-10 sm:px-4 ${
+                showFullFilters
+                  ? 'bg-[#C42759] text-white shadow-xs dark:bg-[#6D3C52] dark:text-[#FADCD5]'
+                  : 'bg-white text-[#2C0107] shadow-[0_3px_14px_rgba(44,1,7,0.06)] hover:text-[#C42759] dark:bg-[#2D222F] dark:text-[#FADCD5] dark:shadow-[0_4px_16px_rgba(0,0,0,0.35)]'
+              }`}
             >
-              Не удалось загрузить каталог: {error}
-            </div>
-          )}
+              <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"
+                />
+              </svg>
+              <span className="hidden sm:inline">Параметры</span>
+            </button>
+          </div>
 
-          {/* Якорь автоскролла пагинации: scroll-mt-28 (112px) > высоты sticky-шапки h-20 (80px) */}
-          <div id="properties-grid" ref={gridRef} className="scroll-mt-28">
-            {loading && !data ? (
-              <SkeletonGrid />
-            ) : data && data.items.length === 0 ? (
-              <div className="rounded-2xl border border-[#ECE2D6] bg-white p-16 text-center shadow-[0_4px_24px_rgba(44,34,30,0.04)] dark:border-white/10 dark:bg-[#1C1A18]">
-                <p className="font-serif text-2xl font-normal text-[#2C221E] dark:text-[#F5F3EF]">
-                  По заданным условиям объектов не найдено
-                </p>
-                <p className="mt-2 text-sm text-[#6B5B50] dark:text-[#A8A096]">
-                  Попробуйте смягчить параметры фильтрации или сбросить активные теги.
-                </p>
-              </div>
-            ) : (
-              <div
-                className={`grid gap-8 transition-opacity sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${
-                  loading ? 'opacity-50' : ''
-                }`}
-                aria-busy={loading}
+          {/* Плотный горизонтальный скролл таблеток-фильтров */}
+          <div className="no-scrollbar -mx-3.5 flex items-center gap-1.5 overflow-x-auto px-3.5 py-0.5 md:mx-0 md:px-0">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedRoomsChip(null);
+                setSearchQuery('');
+                setDrawnPolygon(null);
+                resetFilter();
+              }}
+              className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold transition sm:px-3.5 sm:py-1.5 sm:text-xs ${
+                !hasActiveNarrowFilter
+                  ? 'bg-[#2C0107] text-[#FADCD5] dark:bg-[#FADCD5] dark:text-[#1B0C1A]'
+                  : 'bg-white/80 text-[#5A2D36] hover:bg-white dark:bg-[#2D222F]/80 dark:text-[#DCBAB3]'
+              }`}
+            >
+              Все
+            </button>
+
+            {hasPolygonFilter && (
+              <button
+                type="button"
+                onClick={() => setDrawnPolygon(null)}
+                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#C42759] px-2.5 py-1 text-[11px] font-semibold text-white shadow-xs sm:px-3.5 sm:py-1.5 sm:text-xs"
               >
-                {data?.items.map((p) => (
-                  <PropertyCard
-                    key={p.id}
-                    property={p}
-                    isFavorite={favoriteIds.has(p.id)}
-                    onToggleFavorite={handleToggleFavorite}
-                  />
-                ))}
-              </div>
+                <span>📍 Нарисованная зона ({allFeedPool.length})</span>
+                <span>✕</span>
+              </button>
             )}
+
+            {[
+              { rooms: 1, label: '1-комн.' },
+              { rooms: 2, label: '2-комн.' },
+              { rooms: 3, label: '3+ комн.' },
+            ].map((chip) => (
+              <button
+                key={chip.rooms}
+                type="button"
+                onClick={() => setSelectedRoomsChip((prev) => (prev === chip.rooms ? null : chip.rooms))}
+                className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold transition sm:px-3.5 sm:py-1.5 sm:text-xs ${
+                  selectedRoomsChip === chip.rooms
+                    ? 'bg-[#C42759] text-white shadow-xs dark:bg-[#6D3C52] dark:text-[#FADCD5]'
+                    : 'bg-white/80 text-[#2C0107] hover:bg-white dark:bg-[#2D222F]/80 dark:text-[#FADCD5]'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setFilter({ fromOwner: filter.fromOwner ? undefined : true })}
+              className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold transition sm:px-3.5 sm:py-1.5 sm:text-xs ${
+                filter.fromOwner
+                  ? 'bg-[#C42759] text-white shadow-xs dark:bg-[#6D3C52] dark:text-[#FADCD5]'
+                  : 'bg-white/80 text-[#2C0107] hover:bg-white dark:bg-[#2D222F]/80 dark:text-[#FADCD5]'
+              }`}
+            >
+              От хозяина
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter({ maxPrice: isUnder200k ? undefined : 200000 })}
+              className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold transition sm:px-3.5 sm:py-1.5 sm:text-xs ${
+                isUnder200k
+                  ? 'bg-[#C42759] text-white shadow-xs dark:bg-[#6D3C52] dark:text-[#FADCD5]'
+                  : 'bg-white/80 text-[#2C0107] hover:bg-white dark:bg-[#2D222F]/80 dark:text-[#FADCD5]'
+              }`}
+            >
+              До 200 000 ₸
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter({ noDeposit: filter.noDeposit ? undefined : true })}
+              className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold transition sm:px-3.5 sm:py-1.5 sm:text-xs ${
+                filter.noDeposit
+                  ? 'bg-[#C42759] text-white shadow-xs dark:bg-[#6D3C52] dark:text-[#FADCD5]'
+                  : 'bg-white/80 text-[#2C0107] hover:bg-white dark:bg-[#2D222F]/80 dark:text-[#FADCD5]'
+              }`}
+            >
+              Без залога
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter({ petsAllowed: filter.petsAllowed ? undefined : true })}
+              className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold transition sm:px-3.5 sm:py-1.5 sm:text-xs ${
+                filter.petsAllowed
+                  ? 'bg-[#C42759] text-white shadow-xs dark:bg-[#6D3C52] dark:text-[#FADCD5]'
+                  : 'bg-white/80 text-[#2C0107] hover:bg-white dark:bg-[#2D222F]/80 dark:text-[#FADCD5]'
+              }`}
+            >
+              С питомцами
+            </button>
           </div>
 
-          {totalPages > 1 && (
-            <nav className="mt-6 flex items-center justify-center gap-2" aria-label="Пагинация">
-              <button
-                aria-label="Предыдущая страница"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2D6C8] bg-white text-sm font-medium text-[#3D302A] transition hover:border-[#B85D3B] hover:bg-[#FAF6F0] disabled:opacity-35 dark:border-white/15 dark:bg-[#1C1A18] dark:text-[#E5E0D8] dark:hover:border-[#B89778] dark:hover:bg-[#25221F]"
-                disabled={filter.page <= 1}
-                onClick={() => setFilter({ page: filter.page - 1 })}
-              >
-                ←
-              </button>
-
-              <div className="flex flex-wrap items-center gap-1.5">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                  <button
-                    key={pageNum}
-                    type="button"
-                    onClick={() => setFilter({ page: pageNum })}
-                    className={`h-10 w-10 rounded-full text-xs font-semibold transition ${
-                      pageNum === filter.page
-                        ? 'bg-[#B85D3B] text-white shadow-xs dark:bg-[#B89778] dark:text-[#141312]'
-                        : 'border border-[#E2D6C8] bg-white text-[#3D302A] hover:border-[#B85D3B] hover:bg-[#FAF6F0] dark:border-white/15 dark:bg-[#1C1A18] dark:text-[#E5E0D8] dark:hover:border-[#B89778] dark:hover:bg-[#25221F]'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                aria-label="Следующая страница"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2D6C8] bg-white text-sm font-medium text-[#3D302A] transition hover:border-[#B85D3B] hover:bg-[#FAF6F0] disabled:opacity-35 dark:border-white/15 dark:bg-[#1C1A18] dark:text-[#E5E0D8] dark:hover:border-[#B89778] dark:hover:bg-[#25221F]"
-                disabled={filter.page >= totalPages}
-                onClick={() => setFilter({ page: filter.page + 1 })}
-              >
-                →
-              </button>
-            </nav>
+          {showFullFilters && (
+            <div className="pt-1.5">
+              <CatalogFilters filter={filter} districts={districts} onChange={setFilter} onReset={resetFilter} />
+            </div>
           )}
         </div>
-      </section>
+      </div>
 
-      {/* Секция 3: Интерактивная карта */}
-      <section className="border-t border-[#ECE3D8] bg-white py-16 transition-colors duration-300 lg:py-20 dark:border-white/10 dark:bg-[#181614]">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mb-8 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+      {/* Режим карты (переключается кнопкой FAB) */}
+      {viewMode === 'map' ? (
+        <section className="mx-auto w-full max-w-7xl px-3.5 py-2.5 md:px-8 md:py-4">
+          <div className="mb-2.5 flex items-center justify-between gap-2">
             <div>
-              <span className="block text-[11px] font-medium uppercase tracking-[0.2em] text-[#B85D3B] dark:text-[#B89778]">
-                География присутствия
-              </span>
-              <h2 className="mt-1 font-serif text-3xl font-normal text-[#2C221E] dark:text-[#F5F3EF]">
-                Расположение <span className="italic text-[#B85D3B] dark:text-[#B89778]">на карте</span>
+              <h2 className="font-serif text-base font-normal text-[#2C0107] sm:text-xl dark:text-[#FADCD5]">
+                Поиск <span className="italic text-[#C42759] dark:text-[#dcbab3]">на карте</span>
               </h2>
-              <p className="mt-1.5 text-sm text-[#6B5B50] dark:text-[#A8A096]">
-                Исследуйте кварталы города и выбирайте жилье с панорамными видами и удобной инфраструктурой
+              <p className="text-[11px] text-[#845962] dark:text-[#B08D87]">
+                {hasPolygonFilter
+                  ? `В выделенной зоне: ${allFeedPool.length} из ${poolBeforePolygon.length} объ.`
+                  : `Доступно ${allFeedPool.length} объектов · можно обвести район пальцем`}
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setViewMode('feed')}
+              className="rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-[#2C0107] shadow-2xs dark:bg-[#2D222F] dark:text-[#FADCD5]"
+            >
+              ← К списку ({allFeedPool.length})
+            </button>
           </div>
-          <CatalogMap properties={mapProperties} />
-        </div>
-      </section>
+          <CatalogMap
+            properties={allFeedPool}
+            totalBeforePolygon={poolBeforePolygon.length}
+            drawnPolygon={drawnPolygon}
+            onPolygonChange={setDrawnPolygon}
+            fullscreen
+          />
+        </section>
+      ) : (
+        <>
+          {/* Компактная асимметричная витрина «Успейте снять · ниже рынка» —
+              уменьшена по высоте и отступам, чтобы на первом экране без скролла помещалось начало основного списка */}
+          {!hasActiveNarrowFilter && spotlightDeal && (
+            <section className="pt-1.5 pb-2 md:pt-4 md:pb-6">
+              <div className="mx-auto max-w-7xl px-3.5 md:px-8">
+                <div className="mb-1.5 flex items-baseline justify-between">
+                  <h2 className="font-serif text-base font-normal tracking-tight text-[#2C0107] sm:text-xl dark:text-[#FADCD5]">
+                    Успейте снять · <span className="italic text-[#C42759] dark:text-[#dcbab3]">ниже рынка</span>
+                  </h2>
+                  <span className="text-[11px] text-[#845962] dark:text-[#B08D87]">Спецпредложения</span>
+                </div>
 
-      {/* Секция 4: Геометрическая сетка ценностей в стиле Editorial Dark Luxury */}
-      <section className="border-t border-[#ECE3D8] bg-[#FAF6F0] transition-colors duration-300 dark:border-white/10 dark:bg-[#141312]">
-        <div className="mx-auto grid max-w-7xl lg:grid-cols-[1fr_2fr]">
-          <div className="flex flex-col justify-between border-b border-[#ECE3D8] p-8 lg:border-b-0 lg:border-r lg:p-14 dark:border-white/10">
-            <div>
-              <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#B85D3B] dark:text-[#B89778]">
-                Философия сервиса
-              </span>
-              <h2 className="mt-3 font-serif text-3xl font-normal text-[#2C221E] sm:text-4xl dark:text-[#F5F3EF]">
-                Наши <span className="italic text-[#B85D3B] dark:text-[#B89778]">принципы</span>
-              </h2>
-            </div>
-            <p className="mt-6 text-sm leading-relaxed text-[#6B5B50] dark:text-[#A8A096]">
-              Каждая резиденция проходит проверку на соответствие стандартам комфорта, юридической чистоты и честного
-              ценообразования по районам ВКО.
-            </p>
-          </div>
+                <div className="no-scrollbar -mx-3.5 flex snap-x snap-mandatory items-stretch gap-2.5 overflow-x-auto px-3.5 pb-1 md:mx-0 md:gap-3.5 md:px-0">
+                  {/* 1. Компактная акцентная карточка дня (Spotlight Card) */}
+                  <Link
+                    href={`/properties/${spotlightDeal.id}`}
+                    className="group relative flex h-[126px] w-[224px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl bg-[#2C0107] p-2.5 text-[#FADCD5] shadow-[0_8px_24px_rgba(44,1,7,0.16)] sm:h-[168px] sm:w-[310px] sm:rounded-3xl sm:p-4 dark:bg-[#2D222F]"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={resolvePropertyImageUrl(spotlightDeal.image_url, spotlightDeal.id)}
+                      alt={spotlightDeal.title}
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (target.src !== FALLBACK_UNSPLASH_URLS[0]) {
+                          target.src = FALLBACK_UNSPLASH_URLS[0];
+                        }
+                      }}
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1B0C1A] via-[#1B0C1A]/50 to-[#1B0C1A]/15" />
 
-          <div className="grid sm:grid-cols-2">
-            <div className="border-b border-[#ECE3D8] p-8 sm:border-r lg:p-12 dark:border-white/10">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#B85D3B] dark:text-[#B89778]">
-                01 · Прозрачность сделок
-              </span>
-              <p className="mt-3 text-sm leading-relaxed text-[#5C4D44] dark:text-[#B8B0A6]">
-                Автоматическое формирование официального договора аренды и помесячного графика платежей сразу после
-                одобрения заявки собственником.
-              </p>
+                    <div className="relative z-10 flex items-center justify-between gap-1.5">
+                      <span className="rounded-full bg-[#C42759] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white sm:px-2.5 sm:text-[10px]">
+                        ★ Выбор дня
+                      </span>
+                      <span className="rounded-full bg-black/45 px-2 py-0.5 text-[9px] font-medium text-[#FADCD5] backdrop-blur-md sm:text-[10px]">
+                        {spotlightDeal.rooms}-к · {spotlightDeal.area} м²
+                      </span>
+                    </div>
+
+                    <div className="relative z-10 mt-auto">
+                      <p className="text-base font-extrabold tracking-tight text-white sm:text-xl">
+                        {formatPrice(spotlightDeal.monthlyPrice)}
+                        <span className="text-[10px] font-normal text-[#DCBAB3]"> / мес.</span>
+                      </p>
+                      <p className="truncate text-[11px] font-medium text-[#FADCD5] sm:text-xs">
+                        {spotlightDeal.title}
+                      </p>
+                      <p className="truncate text-[10px] text-[#DCBAB3]/85">
+                        {spotlightDeal.address.district}, {formatAddress(spotlightDeal.address)}
+                      </p>
+                    </div>
+                  </Link>
+
+                  {/* 2. Компактные мини-карточки карусели */}
+                  {storyDeals.map((deal) => (
+                    <Link
+                      key={`story-${deal.id}`}
+                      href={`/properties/${deal.id}`}
+                      className="group relative flex h-[126px] w-[134px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl bg-[#2D222F] p-2.5 text-[#FADCD5] shadow-[0_8px_22px_rgba(44,1,7,0.12)] sm:h-[168px] sm:w-[164px] sm:rounded-3xl sm:p-3.5"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={resolvePropertyImageUrl(deal.image_url, deal.id)}
+                        alt={deal.title}
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (target.src !== FALLBACK_UNSPLASH_URLS[1]) {
+                            target.src = FALLBACK_UNSPLASH_URLS[1];
+                          }
+                        }}
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                      />
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1B0C1A]/95 via-[#1B0C1A]/35 to-transparent" />
+
+                      <div className="relative z-10 flex items-center justify-between">
+                        <span className="rounded-full bg-[#1B0C1A]/70 px-2 py-0.5 text-[9px] font-semibold text-[#FADCD5] backdrop-blur-md sm:text-[10px]">
+                          {deal.rooms}-к · {deal.area} м²
+                        </span>
+                      </div>
+
+                      <div className="relative z-10 mt-auto">
+                        <p className="text-xs font-extrabold tracking-tight text-white sm:text-sm">
+                          {formatPrice(deal.monthlyPrice)}
+                        </p>
+                        <p className="truncate text-[10px] font-medium text-[#FADCD5] sm:text-xs">
+                          {deal.address.district}
+                        </p>
+                        <p className="truncate text-[9px] text-[#DCBAB3]/80 sm:text-[10px]">
+                          {deal.address.street}, {deal.address.building}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Основная выдача с плотными вертикальными отступами */}
+          <section className="py-1.5 md:py-5">
+            <div className="mx-auto flex max-w-7xl flex-col gap-2.5 px-3.5 md:gap-5 md:px-8">
+              <div className="flex items-baseline justify-between gap-2">
+                <h2 className="font-serif text-base font-normal text-[#2C0107] sm:text-xl dark:text-[#FADCD5]">
+                  {hasPolygonFilter ? (
+                    <>
+                      В выбранной <span className="italic text-[#C42759] dark:text-[#dcbab3]">зоне на карте</span>
+                    </>
+                  ) : hasActiveNarrowFilter ? (
+                    <>
+                      Результаты <span className="italic text-[#C42759] dark:text-[#dcbab3]">поиска</span>
+                    </>
+                  ) : (
+                    <>
+                      Все объявления <span className="italic text-[#C42759] dark:text-[#dcbab3]">в ВКО</span>
+                    </>
+                  )}
+                </h2>
+                {data && (
+                  <span className="text-[11px] font-medium text-[#845962] dark:text-[#B08D87]">
+                    {hasPolygonFilter
+                      ? `${displayedGridItems.length} из ${poolBeforePolygon.length} объ.`
+                      : `${data.total} объ. · стр. ${filter.page}/${totalPages}`}
+                  </span>
+                )}
+              </div>
+
+              {error && (
+                <div
+                  className="rounded-2xl bg-[#FADCD5]/60 p-3 text-xs text-[#550416] dark:bg-[#4B2138]/60 dark:text-[#FADCD5]"
+                  role="alert"
+                >
+                  Не удалось загрузить каталог: {error}
+                </div>
+              )}
+
+              <div id="properties-grid" ref={gridRef} className="scroll-mt-28">
+                {loading && !data ? (
+                  <SkeletonGrid />
+                ) : displayedGridItems.length === 0 ? (
+                  <div className="rounded-2xl bg-white/70 p-6 text-center sm:rounded-3xl sm:p-10 dark:bg-[#2D222F]/60">
+                    <p className="font-serif text-lg font-normal text-[#2C0107] dark:text-[#FADCD5]">
+                      Подходящих квартир не нашлось
+                    </p>
+                    <p className="mt-1 text-xs text-[#845962] dark:text-[#B08D87]">
+                      {hasPolygonFilter
+                        ? 'Внутри нарисованного контура нет свободных объектов. Сбросьте зону или обведите более широкий район.'
+                        : 'Попробуйте отключить один из быстрых фильтров сверху.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedRoomsChip(null);
+                        setSearchQuery('');
+                        setDrawnPolygon(null);
+                        resetFilter();
+                      }}
+                      className="mt-3 rounded-full bg-[#C42759] px-4 py-1.5 text-xs font-semibold text-white dark:bg-[#6D3C52] dark:text-[#FADCD5]"
+                    >
+                      Сбросить все фильтры
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className={`grid grid-cols-1 gap-x-5 gap-y-4 transition-opacity sm:gap-y-7 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${
+                      loading ? 'opacity-50' : ''
+                    }`}
+                    aria-busy={loading}
+                  >
+                    {displayedGridItems.map((p) => (
+                      <PropertyCard
+                        key={p.id}
+                        property={p}
+                        isFavorite={favoriteIds.has(p.id)}
+                        onToggleFavorite={handleToggleFavorite}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {!hasPolygonFilter && totalPages > 1 && (
+                <nav className="mt-4 flex items-center justify-center gap-1.5" aria-label="Пагинация">
+                  <button
+                    aria-label="Предыдущая страница"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xs font-semibold text-[#2C0107] shadow-2xs transition hover:text-[#C42759] disabled:opacity-30 dark:bg-[#2D222F] dark:text-[#FADCD5]"
+                    disabled={filter.page <= 1}
+                    onClick={() => setFilter({ page: filter.page - 1 })}
+                  >
+                    ←
+                  </button>
+
+                  <div className="flex flex-wrap items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => setFilter({ page: pageNum })}
+                        className={`h-9 w-9 rounded-full text-xs font-semibold transition ${
+                          pageNum === filter.page
+                            ? 'bg-[#C42759] text-white shadow-xs dark:bg-[#6D3C52] dark:text-[#FADCD5]'
+                            : 'bg-white text-[#2C0107] hover:text-[#C42759] dark:bg-[#2D222F] dark:text-[#FADCD5]'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    aria-label="Следующая страница"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xs font-semibold text-[#2C0107] shadow-2xs transition hover:text-[#C42759] disabled:opacity-30 dark:bg-[#2D222F] dark:text-[#FADCD5]"
+                    disabled={filter.page >= totalPages}
+                    onClick={() => setFilter({ page: filter.page + 1 })}
+                  >
+                    →
+                  </button>
+                </nav>
+              )}
             </div>
-            <div className="border-b border-[#ECE3D8] p-8 lg:p-12 dark:border-white/10">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#B85D3B] dark:text-[#B89778]">
-                02 · Аналитика рыночной цены
-              </span>
-              <p className="mt-3 text-sm leading-relaxed text-[#5C4D44] dark:text-[#B8B0A6]">
-                Интеллектуальное сравнение стоимости каждой квартиры со среднерыночной ставкой по району для выделения
-                лучших предложений.
-              </p>
+          </section>
+
+          {/* Карта с функцией рисования области в нижней части страницы */}
+          <section className="pt-5 pb-4 md:pt-10">
+            <div className="mx-auto max-w-7xl px-3.5 md:px-8">
+              <div className="mb-2.5 flex items-baseline justify-between gap-2">
+                <h2 className="font-serif text-base font-normal text-[#2C0107] sm:text-xl dark:text-[#FADCD5]">
+                  Исследуйте районы <span className="italic text-[#C42759] dark:text-[#dcbab3]">на карте</span>
+                </h2>
+                <span className="text-[11px] text-[#845962] dark:text-[#B08D87]">
+                  Можно обвести зону пальцем или мышкой
+                </span>
+              </div>
+              <CatalogMap
+                properties={allFeedPool}
+                totalBeforePolygon={poolBeforePolygon.length}
+                drawnPolygon={drawnPolygon}
+                onPolygonChange={setDrawnPolygon}
+              />
             </div>
-            <div className="border-b border-[#ECE3D8] p-8 sm:border-b-0 sm:border-r lg:p-12 dark:border-white/10">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#B85D3B] dark:text-[#B89778]">
-                03 · Прямой контакт
-              </span>
-              <p className="mt-3 text-sm leading-relaxed text-[#5C4D44] dark:text-[#B8B0A6]">
-                Объекты напрямую от верифицированных собственников без скрытых комиссий, с гибкими условиями по залогу и
-                проживанию с питомцами.
-              </p>
-            </div>
-            <div className="p-8 lg:p-12">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#B85D3B] dark:text-[#B89778]">
-                04 · Интерактивная картография
-              </span>
-              <p className="mt-3 text-sm leading-relaxed text-[#5C4D44] dark:text-[#B8B0A6]">
-                Наглядный поиск по районам Усть-Каменогорска и Риддера с кластеризацией объектов и быстрым превью
-                интерьеров прямо на карте.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+          </section>
+        </>
+      )}
+
+      {/* Плавающая кнопка (FAB) переключения "На карте / Списком" */}
+      <div className="fixed bottom-18 left-1/2 z-30 -translate-x-1/2 md:bottom-6">
+        <button
+          type="button"
+          onClick={() => setViewMode((prev) => (prev === 'feed' ? 'map' : 'feed'))}
+          className="inline-flex h-10 items-center gap-2 rounded-full border border-[#FADCD5]/20 bg-[#2C0107]/95 px-4 text-xs font-semibold tracking-wide text-[#FADCD5] shadow-[0_10px_26px_rgba(44,1,7,0.4)] backdrop-blur-md transition duration-200 active:scale-95 hover:bg-[#C42759] dark:bg-[#6D3C52]/95 dark:text-[#FADCD5]"
+        >
+          {viewMode === 'feed' ? (
+            <>
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"
+                />
+              </svg>
+              <span>На карте · {allFeedPool.length}</span>
+            </>
+          ) : (
+            <>
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
+                />
+              </svg>
+              <span>Списком ({allFeedPool.length})</span>
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 }
 
 function SkeletonGrid() {
   return (
-    <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:gap-y-7 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="h-96 animate-pulse rounded-2xl bg-[#EFE7DC] dark:bg-[#1E1C1A]" />
+        <div key={i} className="flex flex-col gap-2">
+          <div className="aspect-[16/10] w-full animate-pulse rounded-2xl bg-[#FADCD5]/50 sm:aspect-[4/3] dark:bg-[#2D222F]" />
+          <div className="h-4 w-1/2 animate-pulse rounded-full bg-[#FADCD5]/40 dark:bg-[#2D222F]" />
+          <div className="h-3.5 w-3/4 animate-pulse rounded-full bg-[#FADCD5]/30 dark:bg-[#2D222F]" />
+        </div>
       ))}
     </div>
   );

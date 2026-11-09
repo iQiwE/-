@@ -1,9 +1,7 @@
 import { CatalogFilter, Paginated, Property } from '@/types/property';
-import { ApiError, apiGet, apiRequest } from './client';
+import { ApiError, apiGet, apiRequest, getApiBaseUrl } from './client';
 
 export const PAGE_SIZE = 8;
-
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
 export const propertiesApi = {
   getCatalog: (filter: CatalogFilter, signal?: AbortSignal) =>
@@ -27,7 +25,7 @@ export const propertiesApi = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const res = await fetch(`${BASE_URL}/properties/${propertyId}/image`, {
+    const res = await fetch(`${getApiBaseUrl()}/properties/${propertyId}/image`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
