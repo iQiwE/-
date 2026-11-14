@@ -12,7 +12,7 @@ interface LocationPickerMapProps {
 }
 
 const pickerPinIcon = L.divIcon({
-  html: `<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:var(--accent-primary, #C42759);color:#FADCD5;font-weight:700;font-size:16px;border:3px solid var(--bg-card, #FFFFFF);box-shadow:0 6px 18px rgba(27,12,26,0.45);">📍</div>`,
+  html: `<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:var(--accent-primary, #C42759);color:#FADCD5;font-weight:700;font-size:16px;border:3px solid var(--bg-card, #2D222F);box-shadow:0 6px 18px rgba(27,12,26,0.45);">📍</div>`,
   className: 'location-picker-marker',
   iconSize: [32, 32],
   iconAnchor: [16, 16],
@@ -68,8 +68,8 @@ export default function LocationPickerMap({
   const safeLng = Number.isFinite(longitude) ? longitude : 82.618;
 
   return (
-    <div className="w-full max-w-full overflow-hidden rounded-2xl border border-[#6D3C52]/20 bg-[#FDF5F3] shadow-sm transition-colors duration-300 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A]">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#6D3C52]/12 bg-[#FDF5F3] px-3.5 py-2.5 text-[11px] text-[#5A2D36] sm:px-4 dark:border-[#FADCD5]/12 dark:bg-[#241423] dark:text-[#DCBAB3]">
+    <div className="w-full max-w-full overflow-hidden rounded-2xl border border-[#6D3C52]/15 bg-[#FDF5F3] shadow-sm transition-colors duration-300 dark:border-gray-800 dark:bg-[#1B0C1A]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#6D3C52]/10 bg-[#FDF5F3] px-3.5 py-2.5 text-xs text-[#5A2D36] sm:px-4 dark:border-gray-800 dark:bg-[#241423] dark:text-[#DCBAB3]">
         <span>Кликните по карте или перетащите маркер 📍 для выбора точки</span>
         <span className="rounded-full bg-[#FADCD5]/70 px-2.5 py-0.5 font-mono font-semibold text-[#550416] dark:bg-[#6D3C52] dark:text-[#FADCD5]">
           {safeLat.toFixed(6)}, {safeLng.toFixed(6)}

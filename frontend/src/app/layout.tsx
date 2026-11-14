@@ -1,8 +1,5 @@
 import './globals.css';
-import { BottomTabBar } from '@/components/BottomTabBar';
-import { Footer } from '@/components/Footer';
-import { HeaderNav } from '@/components/HeaderNav';
-import { ThemeProvider } from '@/components/ThemeProvider';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 const themeInitScript = `
 (function() {
@@ -37,12 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="flex min-h-screen max-w-full flex-col overflow-x-hidden bg-[#FDF5F3] pb-16 text-[#2C0107] antialiased transition-colors duration-300 md:pb-0 dark:bg-[#1B0C1A] dark:text-[#FADCD5]">
-        <ThemeProvider>
-          <HeaderNav />
-          <div className="flex-1 max-w-full overflow-x-hidden">{children}</div>
-          <Footer />
-          <BottomTabBar />
-        </ThemeProvider>
+        <MainLayout>{children}</MainLayout>
       </body>
     </html>
   );

@@ -14,7 +14,7 @@ interface Props {
 function createDetailPinIcon(price: number): L.DivIcon {
   const label = `${Math.round(price / 1000)}k ₸`;
   return L.divIcon({
-    html: `<div style="padding:3px 10px;border-radius:9999px;background:var(--accent-primary, #C42759);color:#FADCD5;font-weight:700;font-size:11px;border:2px solid var(--bg-card, #FFFFFF);white-space:nowrap;box-shadow:0 5px 14px rgba(27,12,26,0.38);display:inline-flex;align-items:center;gap:4px;"><span>📍</span><span>${label}</span></div>`,
+    html: `<div style="padding:3px 10px;border-radius:9999px;background:var(--accent-primary, #C42759);color:#FADCD5;font-weight:700;font-size:11px;border:2px solid var(--bg-card, #2D222F);white-space:nowrap;box-shadow:0 5px 14px rgba(27,12,26,0.38);display:inline-flex;align-items:center;gap:4px;"><span>📍</span><span>${label}</span></div>`,
     className: 'property-detail-pin-marker',
     iconSize: [78, 26],
     iconAnchor: [39, 13],
@@ -68,8 +68,8 @@ function PropertyDetailMapBase({ property }: Props) {
   const pinIcon = useMemo(() => createDetailPinIcon(property.monthlyPrice), [property.monthlyPrice]);
 
   return (
-    <div className="mt-5 w-full max-w-full overflow-hidden rounded-2xl border border-[#6D3C52]/15 bg-[#FDF5F3] shadow-[0_10px_30px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:mt-7 sm:rounded-3xl dark:border-[#FADCD5]/12 dark:bg-[#1B0C1A] dark:shadow-[0_12px_36px_rgba(11,4,11,0.45)]">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#6D3C52]/12 bg-[#FDF5F3] px-3.5 py-2.5 text-xs text-[#5A2D36] sm:px-5 sm:py-3 dark:border-[#FADCD5]/12 dark:bg-[#241423] dark:text-[#DCBAB3]">
+    <div className="mt-5 w-full max-w-full overflow-hidden rounded-2xl border border-[#6D3C52]/12 bg-[#FDF5F3] shadow-[0_10px_30px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:mt-7 sm:rounded-3xl dark:border-gray-800 dark:bg-[#1B0C1A] dark:shadow-[0_12px_36px_rgba(11,4,11,0.45)]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#6D3C52]/10 bg-[#FDF5F3] px-3.5 py-2.5 text-xs text-[#5A2D36] sm:px-5 sm:py-3 dark:border-gray-800 dark:bg-[#241423] dark:text-[#DCBAB3]">
         <div className="flex items-center gap-2">
           <span className="font-semibold uppercase tracking-wider text-[#2C0107] dark:text-[#FADCD5]">
             Расположение на карте
@@ -142,7 +142,7 @@ function PropertyDetailMapBase({ property }: Props) {
 
       {/* Мобильная шторка (Bottom Sheet) над BottomTabBar */}
       {isMobile && sheetOpen && (
-        <div className="fixed inset-x-3 bottom-[70px] z-40 rounded-2xl border border-[#6D3C52]/20 bg-white/98 p-2.5 shadow-[0_-8px_30px_rgba(27,12,26,0.28)] backdrop-blur-xl md:hidden dark:border-[#FADCD5]/18 dark:bg-[#2D222F]/98">
+        <div className="fixed inset-x-3 bottom-[70px] z-40 rounded-2xl border border-[#6D3C52]/15 bg-white/98 p-2.5 shadow-[0_-8px_30px_rgba(27,12,26,0.28)] backdrop-blur-xl md:hidden dark:border-gray-800 dark:bg-[#2D222F]/98">
           <div className="mx-auto mb-1.5 h-1 w-8 rounded-full bg-[#6D3C52]/25 dark:bg-[#FADCD5]/25" />
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}

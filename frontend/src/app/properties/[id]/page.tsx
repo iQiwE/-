@@ -1,26 +1,32 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, TouchEvent, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { apiGet, apiRequest } from '@/lib/api/client';
 import { propertiesApi } from '@/lib/api/properties.api';
 import { getSessionUser, getToken, SessionUser } from '@/lib/auth';
-import { FALLBACK_UNSPLASH_URLS, formatAddress, formatPrice, resolvePropertyImageUrl } from '@/lib/format';
+import {
+  FALLBACK_UNSPLASH_URLS,
+  formatAddress,
+  formatPrice,
+  resolvePropertyGalleryUrls,
+  resolvePropertyImageUrl,
+} from '@/lib/format';
 import { Property } from '@/types/property';
 
 const PropertyDetailMap = dynamic(() => import('@/components/property/PropertyDetailMap'), {
   ssr: false,
   loading: () => (
-    <div className="mt-8 flex h-72 items-center justify-center rounded-3xl border border-[#6D3C52]/12 bg-[#FDF5F3] text-xs text-[#5A2D36] dark:border-[#FADCD5]/12 dark:bg-[#1B0C1A] dark:text-[#DCBAB3]">
+    <div className="mt-8 flex h-72 items-center justify-center rounded-3xl border border-[#6D3C52]/12 bg-[#FDF5F3] text-xs text-[#5A2D36] dark:border-gray-800 dark:bg-[#1B0C1A] dark:text-[#DCBAB3]">
       Загрузка интерактивной карты объекта...
     </div>
   ),
 });
 
 const inputCls =
-  'w-full rounded-full border border-[#6D3C52]/20 bg-[#FDF5F3] px-4 py-2.5 text-sm font-normal text-[#2C0107] transition-all duration-300 focus:border-[#C42759] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C42759]/20 disabled:opacity-50 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:focus:border-[#FADCD5]/45 dark:focus:ring-[#6D3C52]/40';
+  'h-12 w-full rounded-full border border-[#6D3C52]/15 bg-[#FDF5F3] px-4 py-2.5 text-sm font-normal text-[#2C0107] transition-all duration-300 focus:border-[#C42759] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C42759]/20 disabled:opacity-50 dark:border-gray-800 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:focus:border-[#6D3C52] dark:focus:ring-[#6D3C52]/40';
 
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
@@ -33,6 +39,10 @@ export default function PropertyDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Локальное состояние выбранного снимка в мини-галерее
+  const [activeIndex, setActiveIndex] = useState(0);
+  const touchStartXRef = useRef<number | null>(null);
+
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const [startDate, setStartDate] = useState(tomorrow);
   const [leaseMonths, setLeaseMonths] = useState(12);
@@ -42,6 +52,7 @@ export default function PropertyDetailPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
+    setActiveIndex(0);
     const currentUser = getSessionUser();
     const token = getToken();
     setUser(currentUser);
@@ -58,6 +69,15 @@ export default function PropertyDetailPage() {
         .catch(() => {});
     }
   }, [id]);
+
+  // Формируем массив фотографий для мини-галереи объекта
+  const galleryPhotos = useMemo(() => {
+    if (!property) return [];
+    if (Array.isArray(property.images) && property.images.length > 0) {
+      return property.images.map((url, idx) => resolvePropertyImageUrl(url, property.id + idx));
+    }
+    return resolvePropertyGalleryUrls(property.image_url, property.id, 6);
+  }, [property]);
 
   const isOwner = Boolean(user && property && user.role === 'LANDLORD' && user.id === property.ownerId);
   const isLandlord = user?.role === 'LANDLORD';
@@ -120,6 +140,25 @@ export default function PropertyDetailPage() {
     }
   }
 
+  function handleMainTouchStart(e: TouchEvent<HTMLDivElement>) {
+    touchStartXRef.current = e.touches[0]?.clientX ?? null;
+  }
+
+  function handleMainTouchEnd(e: TouchEvent<HTMLDivElement>) {
+    if (touchStartXRef.current === null || galleryPhotos.length <= 1) return;
+    const endX = e.changedTouches[0]?.clientX ?? touchStartXRef.current;
+    const deltaX = endX - touchStartXRef.current;
+    touchStartXRef.current = null;
+
+    if (Math.abs(deltaX) > 40) {
+      if (deltaX < 0) {
+        setActiveIndex((prev) => (prev + 1) % galleryPhotos.length);
+      } else {
+        setActiveIndex((prev) => (prev - 1 + galleryPhotos.length) % galleryPhotos.length);
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-12 text-sm text-[#5A2D36] md:px-8 md:py-16 dark:text-[#DCBAB3]">
@@ -135,33 +174,139 @@ export default function PropertyDetailPage() {
     );
   }
 
-  const imgSrc = resolvePropertyImageUrl(property.image_url, property.id);
+  const safeActiveIndex = galleryPhotos.length > 0 ? Math.min(activeIndex, galleryPhotos.length - 1) : 0;
+  const activeImgSrc =
+    galleryPhotos[safeActiveIndex] ?? resolvePropertyImageUrl(property.image_url, property.id);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-12 lg:py-20">
       <Link
         href="/catalog"
-        className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#6D3C52]/20 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#2C0107] shadow-2xs transition-all duration-300 hover:border-[#C42759] hover:text-[#C42759] dark:border-[#FADCD5]/15 dark:bg-[#2D222F] dark:text-[#FADCD5] dark:hover:bg-[#6D3C52]"
+        className="inline-flex h-11 items-center gap-2 rounded-full border border-[#6D3C52]/15 bg-white px-5 text-xs font-semibold uppercase tracking-[0.14em] text-[#2C0107] shadow-2xs transition-all duration-300 hover:border-[#C42759] hover:text-[#C42759] dark:border-gray-800 dark:bg-[#2D222F] dark:text-[#FADCD5] dark:hover:bg-[#6D3C52]"
       >
         ← Назад в каталог
       </Link>
 
       <div className="mt-6 grid grid-cols-1 gap-6 md:mt-8 md:gap-8 lg:grid-cols-[1.5fr_1fr]">
-        <div className="min-w-0 overflow-hidden rounded-2xl border border-[#6D3C52]/12 bg-white shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl dark:border-[#FADCD5]/12 dark:bg-[#2D222F] dark:shadow-[0_18px_48px_rgba(11,4,11,0.55)]">
-          <div className="relative h-64 w-full overflow-hidden rounded-t-2xl bg-[#FADCD5]/40 sm:h-80 sm:rounded-t-3xl md:h-96 dark:bg-[#1B0C1A]">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-[#6D3C52]/12 bg-white shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl dark:border-gray-800 dark:bg-[#2D222F] dark:shadow-[0_18px_48px_rgba(11,4,11,0.55)]">
+          {/* Главная большая фотография (рендерит снимок по activeIndex) */}
+          <div
+            onTouchStart={handleMainTouchStart}
+            onTouchEnd={handleMainTouchEnd}
+            className="group relative h-64 w-full overflow-hidden rounded-t-2xl bg-[#FADCD5]/40 sm:h-80 sm:rounded-t-3xl md:h-[420px] dark:bg-[#1B0C1A]"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={imgSrc}
-              alt={property.title}
+              key={activeImgSrc}
+              src={activeImgSrc}
+              alt={`${property.title} — фото ${safeActiveIndex + 1}`}
+              data-testid="property-main-image"
               onError={(e) => {
                 const target = e.currentTarget;
-                if (target.src !== FALLBACK_UNSPLASH_URLS[0]) {
-                  target.src = FALLBACK_UNSPLASH_URLS[0];
+                const fallback =
+                  FALLBACK_UNSPLASH_URLS[
+                    (Math.max(0, property.id - 1) + safeActiveIndex) % FALLBACK_UNSPLASH_URLS.length
+                  ];
+                if (target.src !== fallback) {
+                  target.src = fallback;
                 }
               }}
-              className="h-full w-full rounded-t-2xl object-cover sm:rounded-t-3xl"
+              className="h-full w-full rounded-t-2xl object-cover transition-all duration-300 sm:rounded-t-3xl"
             />
+
+            {/* Кнопки переключения главного фото влево / вправо */}
+            {galleryPhotos.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActiveIndex((prev) => (prev - 1 + galleryPhotos.length) % galleryPhotos.length)
+                  }
+                  aria-label="Предыдущее фото"
+                  data-testid="gallery-prev-btn"
+                  className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[#1B0C1A]/55 text-[#FADCD5] backdrop-blur-md transition hover:bg-[#C42759] hover:text-white"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveIndex((prev) => (prev + 1) % galleryPhotos.length)}
+                  aria-label="Следующее фото"
+                  data-testid="gallery-next-btn"
+                  className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[#1B0C1A]/55 text-[#FADCD5] backdrop-blur-md transition hover:bg-[#C42759] hover:text-white"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+
+                {/* Счетчик снимков в правом нижнем углу */}
+                <span className="pointer-events-none absolute bottom-3 right-3.5 rounded-full bg-[#1B0C1A]/70 px-3 py-1 text-xs font-semibold text-[#FADCD5] backdrop-blur-md">
+                  {safeActiveIndex + 1} / {galleryPhotos.length}
+                </span>
+              </>
+            )}
           </div>
+
+          {/* Горизонтальная лента миниатюр (Thumbnails) сразу под основным фото */}
+          {galleryPhotos.length > 1 && (
+            <div
+              data-testid="property-thumbnails"
+              style={{
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                WebkitOverflowScrolling: 'touch',
+              }}
+              className="no-scrollbar flex items-center gap-3 overflow-x-auto border-b border-[#6D3C52]/10 bg-[#FDF5F3]/60 px-4 py-3.5 sm:px-6 md:px-8 dark:border-gray-800 dark:bg-[#1B0C1A]/50 [&::-webkit-scrollbar]:hidden"
+            >
+              {galleryPhotos.map((photoUrl, idx) => {
+                const isSelected = idx === safeActiveIndex;
+                return (
+                  <button
+                    key={`${property.id}-thumb-${idx}`}
+                    type="button"
+                    data-testid={`property-thumbnail-${idx}`}
+                    aria-label={`Показать фото ${idx + 1}`}
+                    aria-pressed={isSelected}
+                    onClick={(e) => {
+                      setActiveIndex(idx);
+                      e.currentTarget.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest',
+                        inline: 'center',
+                      });
+                    }}
+                    className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border border-transparent transition-all duration-200 focus:outline-none md:h-24 md:w-32 ${
+                      isSelected
+                        ? 'opacity-100 ring-2 ring-[#6D3C52] border-transparent shadow-sm'
+                        : 'opacity-50 hover:opacity-100 transition-opacity'
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photoUrl}
+                      alt={`${property.title} — миниатюра ${idx + 1}`}
+                      loading="lazy"
+                      draggable={false}
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        const fallback =
+                          FALLBACK_UNSPLASH_URLS[
+                            (Math.max(0, property.id - 1) + idx + 1) % FALLBACK_UNSPLASH_URLS.length
+                          ];
+                        if (target.src !== fallback) {
+                          target.src = fallback;
+                        }
+                      }}
+                      className="h-full w-full rounded-xl object-cover"
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <div className="p-4 sm:p-6 md:p-8">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -183,7 +328,7 @@ export default function PropertyDetailPage() {
                   className={`inline-flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold transition-all duration-300 ${
                     isFavorite
                       ? 'border-[#C42759] bg-[#C42759] text-white shadow-sm dark:border-[#6D3C52] dark:bg-[#6D3C52] dark:text-[#FADCD5]'
-                      : 'border-[#6D3C52]/20 bg-[#FDF5F3] text-[#2C0107] hover:border-[#C42759] dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:hover:bg-[#4B2138]'
+                      : 'border-[#6D3C52]/20 bg-[#FDF5F3] text-[#2C0107] hover:border-[#C42759] dark:border-gray-800 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:hover:bg-[#4B2138]'
                   }`}
                 >
                   <span>♥</span>
@@ -226,7 +371,7 @@ export default function PropertyDetailPage() {
               )}
             </div>
 
-            <dl className="mt-6 grid grid-cols-2 gap-4 rounded-2xl border border-[#6D3C52]/12 bg-[#FDF5F3] p-5 text-sm dark:border-[#FADCD5]/12 dark:bg-[#1B0C1A]">
+            <dl className="mt-6 grid grid-cols-2 gap-4 rounded-2xl border border-[#6D3C52]/12 bg-[#FDF5F3] p-5 text-sm dark:border-gray-800 dark:bg-[#1B0C1A]">
               <div>
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-[#845962] dark:text-[#B08D87]">
                   Комнат
@@ -239,7 +384,7 @@ export default function PropertyDetailPage() {
                 </dt>
                 <dd className="mt-1 font-semibold text-[#2C0107] dark:text-[#FADCD5]">{property.area} м²</dd>
               </div>
-              <div className="col-span-2 border-t border-[#6D3C52]/12 pt-3 dark:border-[#FADCD5]/12">
+              <div className="col-span-2 border-t border-[#6D3C52]/12 pt-3 dark:border-gray-800">
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-[#845962] dark:text-[#B08D87]">
                   Адрес
                 </dt>
@@ -260,7 +405,7 @@ export default function PropertyDetailPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-4 self-start rounded-2xl border border-[#6D3C52]/12 bg-white p-5 shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl sm:p-6 md:p-8 dark:border-[#FADCD5]/12 dark:bg-[#2D222F] dark:shadow-[0_18px_48px_rgba(11,4,11,0.55)]"
+          className="flex flex-col gap-4 self-start rounded-2xl border border-[#6D3C52]/12 bg-white p-5 shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl sm:p-6 md:p-8 dark:border-gray-800 dark:bg-[#2D222F] dark:shadow-[0_18px_48px_rgba(11,4,11,0.55)]"
         >
           <span className="self-start rounded-full bg-[#FADCD5] px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#550416] dark:bg-[#6D3C52] dark:text-[#FADCD5]">
             Бронирование
@@ -270,7 +415,7 @@ export default function PropertyDetailPage() {
           </h2>
 
           {!user && (
-            <div className="rounded-2xl border border-[#C42759]/20 bg-[#FADCD5]/55 p-4 text-xs leading-relaxed text-[#550416] dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5]">
+            <div className="rounded-2xl border border-[#C42759]/20 bg-[#FADCD5]/55 p-4 text-xs leading-relaxed text-[#550416] dark:border-gray-800 dark:bg-[#1B0C1A] dark:text-[#FADCD5]">
               Вы просматриваете объект как гость. При нажатии кнопки «Оставить заявку» вы будете перенаправлены на
               страницу входа.
             </div>
@@ -327,7 +472,7 @@ export default function PropertyDetailPage() {
               disabled={isOwner || isLandlord}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="w-full rounded-2xl border border-[#6D3C52]/20 bg-[#FDF5F3] px-4 py-3 text-sm font-normal text-[#2C0107] transition-all duration-300 focus:border-[#C42759] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C42759]/20 disabled:opacity-50 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:focus:border-[#FADCD5]/45"
+              className="w-full rounded-2xl border border-[#6D3C52]/15 bg-[#FDF5F3] px-4 py-3 text-sm font-normal text-[#2C0107] transition-all duration-300 focus:border-[#C42759] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C42759]/20 disabled:opacity-50 dark:border-gray-800 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:focus:border-[#6D3C52]"
             />
           </label>
 
@@ -345,7 +490,7 @@ export default function PropertyDetailPage() {
           <button
             type="submit"
             disabled={submitting || isOwner || isLandlord || property.status !== 'AVAILABLE'}
-            className="mt-2 rounded-full bg-[#C42759] px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-[0_8px_22px_rgba(196,39,89,0.28)] transition-all duration-300 hover:bg-[#550416] disabled:opacity-50 dark:bg-[#6D3C52] dark:text-[#FADCD5] dark:shadow-[0_8px_22px_rgba(0,0,0,0.4)] dark:hover:bg-[#4B2138]"
+            className="mt-2 h-12 w-full rounded-full bg-[#C42759] px-6 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-[0_8px_22px_rgba(196,39,89,0.28)] transition-all duration-300 hover:bg-[#550416] disabled:opacity-50 dark:bg-[#6D3C52] dark:text-[#FADCD5] dark:shadow-[0_8px_22px_rgba(0,0,0,0.4)] dark:hover:bg-[#4B2138]"
           >
             {submitting ? 'Отправка...' : 'Оставить заявку'}
           </button>

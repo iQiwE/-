@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic';
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { FaqSection } from '@/components/faq/FaqSection';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 import { apiGet, apiRequest } from '@/lib/api/client';
 import { propertiesApi } from '@/lib/api/properties.api';
 import { getSessionUser, getToken } from '@/lib/auth';
@@ -30,7 +32,7 @@ interface ApplicationItem {
 }
 
 const inputCls =
-  'min-h-11 w-full rounded-full border border-[#6D3C52]/20 bg-[#FDF5F3] px-4 py-2.5 text-sm font-normal text-[#2C0107] transition-all duration-300 focus:border-[#C42759] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C42759]/20 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:placeholder-[#B08D87] dark:focus:border-[#FADCD5]/45 dark:focus:ring-[#6D3C52]/40';
+  'h-12 w-full rounded-full border border-[#6D3C52]/15 bg-[#FDF5F3] px-4 text-sm font-normal text-[#2C0107] transition-all duration-300 focus:border-[#C42759] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C42759]/20 dark:border-gray-800 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:placeholder-[#B08D87] dark:focus:border-[#6D3C52] dark:focus:ring-[#6D3C52]/40';
 
 const LANDLORD_PAGE_SIZE = 5;
 
@@ -41,7 +43,27 @@ export default function LandlordPage() {
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showToast(msg: string) {
+    setToastMessage(msg);
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 4500);
+  }
+
+  function sanitizeUserErrorMessage(raw: unknown, fallback: string): string {
+    if (typeof raw !== 'string' || !raw.trim()) return fallback;
+    if (/^Cannot\s+(GET|POST|PUT|PATCH|DELETE)/i.test(raw) || /Failed to fetch|NetworkError/i.test(raw)) {
+      return fallback;
+    }
+    return raw;
+  }
 
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'RENTED' | 'INACTIVE'>('ALL');
   const [districtFilter, setDistrictFilter] = useState<string>('ALL');
@@ -75,15 +97,23 @@ export default function LandlordPage() {
 
   async function loadData(jwt: string) {
     setError(null);
-    try {
-      const [apps, props] = await Promise.all([
-        apiGet<ApplicationItem[]>('/applications', undefined, undefined, jwt),
-        apiGet<Property[]>('/properties/my', undefined, undefined, jwt),
-      ]);
-      setApplications(apps);
-      setProperties(props);
-    } catch (e: any) {
-      setError(e.message ?? 'Ошибка загрузки данных кабинета');
+    const [appsResult, propsResult] = await Promise.allSettled([
+      apiGet<ApplicationItem[]>('/applications', undefined, undefined, jwt),
+      apiGet<Property[]>('/properties/my', undefined, undefined, jwt),
+    ]);
+
+    if (appsResult.status === 'fulfilled' && Array.isArray(appsResult.value)) {
+      setApplications(appsResult.value);
+    } else {
+      setApplications([]);
+      showToast('Не удалось загрузить заявки');
+    }
+
+    if (propsResult.status === 'fulfilled' && Array.isArray(propsResult.value)) {
+      setProperties(propsResult.value);
+    } else {
+      setProperties([]);
+      showToast('Не удалось загрузить список объектов');
     }
   }
 
@@ -110,6 +140,9 @@ export default function LandlordPage() {
     return () => {
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
+      }
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
       }
     };
   }, [previewUrl]);
@@ -302,7 +335,9 @@ export default function LandlordPage() {
       }
       await loadData(token);
     } catch (e: any) {
-      setError(e.message ?? 'Не удалось сохранить объявление');
+      const msg = sanitizeUserErrorMessage(e?.message, 'Не удалось сохранить объявление');
+      setError(msg);
+      showToast(msg);
     } finally {
       setSubmitting(false);
     }
@@ -319,7 +354,9 @@ export default function LandlordPage() {
       setNotice(`Фотография объекта #${propertyId} обновлена.`);
       await loadData(token);
     } catch (err: any) {
-      setError(err.message ?? 'Не удалось загрузить фотографию');
+      const msg = sanitizeUserErrorMessage(err?.message, 'Не удалось загрузить фотографию');
+      setError(msg);
+      showToast(msg);
     } finally {
       setUploadingPropertyId(null);
     }
@@ -338,7 +375,9 @@ export default function LandlordPage() {
       setNotice(`Заявка #${id} одобрена. Создан договор #${res.contractId} и платежей: ${res.paymentsCreated}.`);
       await loadData(token);
     } catch (e: any) {
-      setError(e.message ?? 'Не удалось одобрить заявку');
+      const msg = sanitizeUserErrorMessage(e?.message, 'Не удалось одобрить заявку');
+      setError(msg);
+      showToast(msg);
     }
   }
 
@@ -350,7 +389,9 @@ export default function LandlordPage() {
       setNotice(`Заявка #${id} отклонена.`);
       await loadData(token);
     } catch (e: any) {
-      setError(e.message ?? 'Не удалось отклонить заявку');
+      const msg = sanitizeUserErrorMessage(e?.message, 'Не удалось отклонить заявку');
+      setError(msg);
+      showToast(msg);
     }
   }
 
@@ -362,7 +403,9 @@ export default function LandlordPage() {
       setNotice(`Объект #${id} снят с публикации (статус INACTIVE).`);
       await loadData(token);
     } catch (e: any) {
-      setError(e.message ?? 'Не удалось снять объект с публикации');
+      const msg = sanitizeUserErrorMessage(e?.message, 'Не удалось снять объект с публикации');
+      setError(msg);
+      showToast(msg);
     }
   }
 
@@ -387,7 +430,9 @@ export default function LandlordPage() {
       setNotice(`Объект #${prop.id} («${prop.title}») полностью удалён из базы данных.`);
       setDeleteTarget(null);
     } catch (e: any) {
-      setError(e.message ?? 'Не удалось удалить объект');
+      const msg = sanitizeUserErrorMessage(e?.message, 'Не удалось удалить объект');
+      setError(msg);
+      showToast(msg);
     } finally {
       setDeletingProperty(false);
     }
@@ -401,7 +446,9 @@ export default function LandlordPage() {
       setNotice(`Объект #${id} возвращён в публикацию (статус AVAILABLE).`);
       await loadData(token);
     } catch (e: any) {
-      setError(e.message ?? 'Не удалось активировать объект');
+      const msg = sanitizeUserErrorMessage(e?.message, 'Не удалось активировать объект');
+      setError(msg);
+      showToast(msg);
     }
   }
 
@@ -447,17 +494,32 @@ export default function LandlordPage() {
           </header>
 
           {notice && (
-            <div className="rounded-2xl border border-[#C42759]/25 bg-[#FADCD5]/70 p-4 text-sm font-medium text-[#550416] shadow-xs sm:rounded-3xl dark:border-[#FADCD5]/20 dark:bg-[#6D3C52] dark:text-[#FADCD5]">
+            <div className="rounded-2xl border border-[#C42759]/25 bg-[#FADCD5]/70 p-4 text-sm font-medium text-[#550416] shadow-xs sm:rounded-3xl dark:border-gray-800 dark:bg-[#6D3C52] dark:text-[#FADCD5]">
               {notice}
             </div>
           )}
-          {error && (
-            <div className="rounded-2xl border border-[#C42759]/30 bg-[#FADCD5]/55 p-4 text-sm font-medium text-[#C42759] sm:rounded-3xl dark:border-[#FADCD5]/20 dark:bg-[#4B2138] dark:text-[#FADCD5]">
-              {error}
+
+          {/* Всплывающее Toast-уведомление об ошибке без рендера сырых серверных логов */}
+          {toastMessage && (
+            <div
+              role="status"
+              aria-live="polite"
+              data-testid="landlord-toast"
+              className="fixed right-4 bottom-20 z-50 flex max-w-sm items-center justify-between gap-3 rounded-2xl border border-[#C42759]/30 bg-[#2C0107] px-5 py-3.5 text-sm font-medium text-[#FADCD5] shadow-2xl transition-all md:right-6 md:bottom-6 dark:border-gray-800 dark:bg-[#2D222F]"
+            >
+              <span>{toastMessage}</span>
+              <button
+                type="button"
+                onClick={() => setToastMessage(null)}
+                aria-label="Закрыть уведомление"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs text-[#FADCD5] transition hover:bg-white/20"
+              >
+                ✕
+              </button>
             </div>
           )}
 
-          <div className="rounded-2xl border border-[#6D3C52]/12 bg-white p-4 shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl sm:p-6 md:p-7 dark:border-[#FADCD5]/12 dark:bg-[#2D222F] dark:shadow-[0_16px_44px_rgba(11,4,11,0.5)]">
+          <div className="rounded-2xl border border-[#6D3C52]/12 bg-white p-4 shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl sm:p-6 md:p-7 dark:border-gray-800 dark:bg-[#2D222F] dark:shadow-[0_16px_44px_rgba(11,4,11,0.5)]">
             <h2 className="font-serif text-xl font-normal text-[#2C0107] sm:text-2xl dark:text-[#FADCD5]">
               Входящие <span className="italic text-[#C42759] dark:text-[#dcbab3]">заявки</span> на аренду
             </h2>
@@ -513,12 +575,12 @@ export default function LandlordPage() {
       </section>
 
       {/* Секция 2: Создание/редактирование с интерактивной картой и список объектов */}
-      <section className="border-t border-[#6D3C52]/12 bg-[#FADCD5]/20 py-10 transition-colors duration-300 md:py-14 dark:border-[#FADCD5]/10 dark:bg-[#241423]">
+      <section className="border-t border-[#6D3C52]/12 bg-[#FADCD5]/20 py-10 transition-colors duration-300 md:py-14 dark:border-gray-800 dark:bg-[#241423]">
         <div className="mx-auto flex w-full max-w-7xl flex-col items-center justify-center gap-6 px-4 md:gap-8 md:px-8 lg:flex-row lg:items-start">
           <form
             ref={formRef}
             onSubmit={handleSubmitProperty}
-            className="flex w-full shrink-0 scroll-mt-24 flex-col gap-4 rounded-2xl border border-[#6D3C52]/12 bg-white p-4 shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl sm:p-6 md:p-7 lg:w-[410px] xl:w-[440px] dark:border-[#FADCD5]/12 dark:bg-[#2D222F] dark:shadow-[0_16px_44px_rgba(11,4,11,0.5)]"
+            className="flex w-full shrink-0 scroll-mt-24 flex-col gap-4 rounded-2xl border border-[#6D3C52]/12 bg-white p-4 shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl sm:p-6 md:p-7 lg:w-[410px] xl:w-[440px] dark:border-gray-800 dark:bg-[#2D222F] dark:shadow-[0_16px_44px_rgba(11,4,11,0.5)]"
           >
             <div className="flex min-h-[36px] items-center justify-between gap-2">
               <h2 className="font-serif text-xl font-normal leading-tight text-[#2C0107] sm:text-2xl dark:text-[#FADCD5]">
@@ -807,7 +869,7 @@ export default function LandlordPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="mt-2 min-h-11 w-full rounded-full bg-[#C42759] px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-[0_8px_22px_rgba(196,39,89,0.28)] transition-all duration-300 hover:bg-[#550416] disabled:opacity-50 dark:bg-[#6D3C52] dark:text-[#FADCD5] dark:shadow-[0_8px_22px_rgba(0,0,0,0.4)] dark:hover:bg-[#4B2138]"
+              className="mt-2 h-12 w-full rounded-full bg-[#C42759] px-6 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-[0_8px_22px_rgba(196,39,89,0.28)] transition-all duration-300 hover:bg-[#550416] disabled:opacity-50 dark:bg-[#6D3C52] dark:text-[#FADCD5] dark:shadow-[0_8px_22px_rgba(0,0,0,0.4)] dark:hover:bg-[#4B2138]"
             >
               {submitting
                 ? 'Сохранение...'
@@ -818,7 +880,7 @@ export default function LandlordPage() {
           </form>
 
           {/* Правая колонка: Список объектов арендодателя */}
-          <div className="flex min-w-0 w-full flex-1 flex-col justify-between rounded-2xl border border-[#6D3C52]/12 bg-white p-4 shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl sm:p-6 md:p-7 dark:border-[#FADCD5]/12 dark:bg-[#2D222F] dark:shadow-[0_16px_44px_rgba(11,4,11,0.5)]">
+          <div className="flex min-w-0 w-full flex-1 flex-col justify-between rounded-2xl border border-[#6D3C52]/12 bg-white p-4 shadow-[0_14px_40px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl sm:p-6 md:p-7 dark:border-gray-800 dark:bg-[#2D222F] dark:shadow-[0_16px_44px_rgba(11,4,11,0.5)]">
             <div className="min-w-0 w-full">
               <div className="flex min-h-[36px] flex-wrap items-center justify-between gap-2">
                 <h2 className="font-serif text-xl font-normal leading-tight text-[#2C0107] sm:text-2xl dark:text-[#FADCD5]">
@@ -835,59 +897,61 @@ export default function LandlordPage() {
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
+                <div className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
                   <span className="pl-2">Статус</span>
-                  <select
+                  <CustomSelect
                     value={statusFilter}
-                    onChange={(e) => {
-                      setStatusFilter(e.target.value as any);
+                    ariaLabel="Фильтр по статусу объекта"
+                    dataTestId="landlord-status-select"
+                    options={[
+                      { value: 'ALL', label: 'Все статусы' },
+                      { value: 'AVAILABLE', label: 'AVAILABLE (Свободно)' },
+                      { value: 'RENTED', label: 'RENTED (Сдано)' },
+                      { value: 'INACTIVE', label: 'INACTIVE (Снято)' },
+                    ]}
+                    onChange={(val) => {
+                      setStatusFilter(val as any);
                       setPropPage(1);
                     }}
-                    className={inputCls}
-                  >
-                    <option value="ALL">Все статусы</option>
-                    <option value="AVAILABLE">AVAILABLE (Свободно)</option>
-                    <option value="RENTED">RENTED (Сдано)</option>
-                    <option value="INACTIVE">INACTIVE (Снято)</option>
-                  </select>
-                </label>
+                  />
+                </div>
 
-                <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
+                <div className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
                   <span className="pl-2">Район</span>
-                  <select
+                  <CustomSelect
                     value={districtFilter}
-                    onChange={(e) => {
-                      setDistrictFilter(e.target.value);
+                    ariaLabel="Фильтр по району"
+                    dataTestId="landlord-district-select"
+                    options={[
+                      { value: 'ALL', label: 'Все районы' },
+                      ...uniqueDistricts.map((d) => ({ value: d, label: d })),
+                    ]}
+                    onChange={(val) => {
+                      setDistrictFilter(val);
                       setPropPage(1);
                     }}
-                    className={inputCls}
-                  >
-                    <option value="ALL">Все районы</option>
-                    {uniqueDistricts.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  />
+                </div>
 
-                <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
+                <div className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-[#5A2D36] dark:text-[#DCBAB3]">
                   <span className="pl-2">Сортировка</span>
-                  <select
+                  <CustomSelect
                     value={sortBy}
-                    onChange={(e) => {
-                      setSortBy(e.target.value as any);
+                    ariaLabel="Сортировка объектов"
+                    dataTestId="landlord-sort-select"
+                    options={[
+                      { value: 'newest', label: 'Сначала новые' },
+                      { value: 'price_asc', label: 'Цена: по возрастанию' },
+                      { value: 'price_desc', label: 'Цена: по убыванию' },
+                      { value: 'status_avail', label: 'Сначала AVAILABLE' },
+                      { value: 'status_rented', label: 'Сначала RENTED' },
+                    ]}
+                    onChange={(val) => {
+                      setSortBy(val as any);
                       setPropPage(1);
                     }}
-                    className={inputCls}
-                  >
-                    <option value="newest">Сначала новые</option>
-                    <option value="price_asc">Цена: по возрастанию</option>
-                    <option value="price_desc">Цена: по убыванию</option>
-                    <option value="status_avail">Сначала AVAILABLE</option>
-                    <option value="status_rented">Сначала RENTED</option>
-                  </select>
-                </label>
+                  />
+                </div>
               </div>
 
               {/* Список карточек объектов арендодателя: на мобильном вертикальные стеки (flex-col), на десктопе горизонтальные (md:flex-row) */}
@@ -1080,6 +1144,9 @@ export default function LandlordPage() {
           </div>
         </div>
       </section>
+
+      {/* Секция 3: Блок частых вопросов (FAQ) внизу кабинета */}
+      <FaqSection compact />
 
       {/* Адаптивное модальное окно подтверждения удаления (w-[90%] на мобильных) */}
       {deleteTarget && (

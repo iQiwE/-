@@ -7,7 +7,7 @@ import { apiRequest } from '@/lib/api/client';
 import { AuthSession, saveSession } from '@/lib/auth';
 
 const inputCls =
-  'w-full rounded-full border border-[#6D3C52]/20 bg-[#FDF5F3] px-4 py-3 text-sm font-normal text-[#2C0107] transition-all duration-300 focus:border-[#C42759] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C42759]/20 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:placeholder-[#B08D87] dark:focus:border-[#FADCD5]/45 dark:focus:ring-[#6D3C52]/40';
+  'h-12 w-full rounded-full border border-[#6D3C52]/15 bg-[#FDF5F3] px-4 text-sm font-normal text-[#2C0107] transition-all duration-300 focus:border-[#C42759] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#C42759]/20 dark:border-gray-800 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:placeholder-[#B08D87] dark:focus:border-[#6D3C52] dark:focus:ring-[#6D3C52]/40';
 
 function LoginForm() {
   const router = useRouter();
@@ -57,7 +57,7 @@ function LoginForm() {
     : '/register';
 
   return (
-    <div className="rounded-2xl border border-[#6D3C52]/12 bg-white p-5 shadow-[0_16px_44px_rgba(44,1,7,0.07)] transition-colors duration-300 sm:rounded-3xl sm:p-8 md:p-10 dark:border-[#FADCD5]/12 dark:bg-[#2D222F] dark:shadow-[0_20px_54px_rgba(11,4,11,0.6)]">
+    <div className="rounded-2xl border border-[#6D3C52]/12 bg-white p-5 shadow-[0_16px_44px_rgba(44,1,7,0.07)] transition-colors duration-300 sm:rounded-3xl sm:p-8 md:p-10 dark:border-gray-800 dark:bg-[#2D222F] dark:shadow-[0_20px_54px_rgba(11,4,11,0.6)]">
       <span className="inline-block rounded-full bg-[#FADCD5] px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#550416] dark:bg-[#6D3C52] dark:text-[#FADCD5]">
         Авторизация
       </span>
@@ -103,7 +103,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-2 rounded-full bg-[#C42759] px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-[0_8px_22px_rgba(196,39,89,0.28)] transition-all duration-300 hover:bg-[#550416] disabled:opacity-50 dark:bg-[#6D3C52] dark:text-[#FADCD5] dark:shadow-[0_8px_22px_rgba(0,0,0,0.4)] dark:hover:bg-[#4B2138]"
+          className="mt-2 h-12 w-full rounded-full bg-[#C42759] px-6 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-[0_8px_22px_rgba(196,39,89,0.28)] transition-all duration-300 hover:bg-[#550416] disabled:opacity-50 dark:bg-[#6D3C52] dark:text-[#FADCD5] dark:shadow-[0_8px_22px_rgba(0,0,0,0.4)] dark:hover:bg-[#4B2138]"
         >
           {loading ? 'Вход...' : 'Войти'}
         </button>
@@ -116,7 +116,7 @@ function LoginForm() {
         </Link>
       </div>
 
-      <div className="mt-6 border-t border-[#6D3C52]/12 pt-5 dark:border-[#FADCD5]/12">
+      <div className="mt-6 border-t border-[#6D3C52]/12 pt-5 dark:border-gray-800">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-[#845962] dark:text-[#B08D87]">
           Быстрый вход под тестовыми аккаунтами:
         </p>
@@ -128,7 +128,7 @@ function LoginForm() {
               setPassword('demo123');
               submitLogin('landlord@example.com', 'demo123');
             }}
-            className="rounded-full border border-[#6D3C52]/20 bg-[#FDF5F3] px-3 py-2 text-xs font-semibold text-[#2C0107] transition-all duration-300 hover:border-[#C42759] hover:bg-[#FADCD5]/60 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:hover:bg-[#4B2138]"
+            className="h-12 w-full rounded-full border border-[#6D3C52]/15 bg-[#FDF5F3] px-3 text-xs font-semibold text-[#2C0107] transition-all duration-300 hover:border-[#C42759] hover:bg-[#FADCD5]/60 dark:border-gray-800 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:hover:bg-[#4B2138]"
           >
             Арендодатель
           </button>
@@ -139,7 +139,7 @@ function LoginForm() {
               setPassword('demo123');
               submitLogin('tenant@example.com', 'demo123');
             }}
-            className="rounded-full border border-[#6D3C52]/20 bg-[#FDF5F3] px-3 py-2 text-xs font-semibold text-[#2C0107] transition-all duration-300 hover:border-[#C42759] hover:bg-[#FADCD5]/60 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:hover:bg-[#4B2138]"
+            className="h-12 w-full rounded-full border border-[#6D3C52]/15 bg-[#FDF5F3] px-3 text-xs font-semibold text-[#2C0107] transition-all duration-300 hover:border-[#C42759] hover:bg-[#FADCD5]/60 dark:border-gray-800 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:hover:bg-[#4B2138]"
           >
             Арендатор
           </button>

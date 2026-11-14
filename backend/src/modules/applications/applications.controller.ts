@@ -29,6 +29,14 @@ export class ApplicationsController {
     return this.service.submit(propertyId, user, dto);
   }
 
+  @Get('applications')
+  findAllForCurrentUser(@CurrentUser() user: AuthUser, @Query() query: ApplicationStatusFilterDto) {
+    if (user.role === 'LANDLORD') {
+      return this.service.findForLandlord(user.id, query.status);
+    }
+    return this.service.findForTenant(user.id);
+  }
+
   @Get('tenant/applications')
   @Roles('TENANT')
   findMine(@CurrentUser() user: AuthUser) {

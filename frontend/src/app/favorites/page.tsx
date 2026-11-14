@@ -63,7 +63,7 @@ export default function FavoritesPage() {
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-10 md:gap-10 md:px-8 md:py-14 lg:py-20">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[#6D3C52]/12 pb-6 dark:border-[#FADCD5]/12">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[#6D3C52]/12 pb-6 dark:border-gray-800">
         <div>
           <span className="inline-block rounded-full bg-[#FADCD5] px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#550416] dark:bg-[#2D222F] dark:text-[#FADCD5]">
             Персональная подборка
@@ -77,7 +77,7 @@ export default function FavoritesPage() {
         </div>
         <Link
           href="/catalog"
-          className="rounded-full border border-[#6D3C52]/20 bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#2C0107] shadow-2xs transition-all duration-300 hover:border-[#C42759] hover:text-[#C42759] dark:border-[#FADCD5]/15 dark:bg-[#2D222F] dark:text-[#FADCD5] dark:hover:bg-[#6D3C52]"
+          className="inline-flex h-12 w-full items-center justify-center rounded-full border border-[#6D3C52]/15 bg-white px-5 text-xs font-semibold uppercase tracking-[0.14em] text-[#2C0107] shadow-2xs transition-all duration-300 hover:border-[#C42759] hover:text-[#C42759] sm:w-auto dark:border-gray-800 dark:bg-[#2D222F] dark:text-[#FADCD5] dark:hover:bg-[#6D3C52]"
         >
           ← Вернуться в каталог
         </Link>
@@ -99,7 +99,7 @@ export default function FavoritesPage() {
           ))}
         </div>
       ) : favorites.length === 0 ? (
-        <div className="rounded-2xl border border-[#6D3C52]/12 bg-white p-8 text-center shadow-[0_14px_40px_rgba(44,1,7,0.06)] sm:rounded-3xl sm:p-16 dark:border-[#FADCD5]/12 dark:bg-[#2D222F] dark:shadow-[0_16px_44px_rgba(11,4,11,0.5)]">
+        <div className="rounded-2xl border border-[#6D3C52]/12 bg-white p-8 text-center shadow-[0_14px_40px_rgba(44,1,7,0.06)] sm:rounded-3xl sm:p-16 dark:border-gray-800 dark:bg-[#2D222F] dark:shadow-[0_16px_44px_rgba(11,4,11,0.5)]">
           <p className="font-serif text-xl font-normal text-[#2C0107] sm:text-2xl dark:text-[#FADCD5]">
             В избранном пока нет объектов
           </p>

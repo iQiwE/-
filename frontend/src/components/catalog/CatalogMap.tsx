@@ -12,7 +12,8 @@ import { Property } from '@/types/property';
 
 export type LatLngTuple = [number, number];
 
-interface Props {
+export interface MapComponentProps {
+  /** Полный список доступных объектов (до или после фильтрации) для отображения на карте. */
   properties: Property[];
   totalBeforePolygon?: number;
   drawnPolygon?: LatLngTuple[] | null;
@@ -40,7 +41,7 @@ function getClusterIcon(count: number): L.DivIcon {
 
   const size = count < 5 ? 34 : count < 10 ? 40 : 44;
   const icon = L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:var(--accent-primary, #C42759);color:#FADCD5;font-weight:700;font-size:13px;border:2.5px solid var(--bg-card, #FFFFFF);box-shadow:0 6px 16px rgba(27,12,26,0.38);">${count}</div>`,
+    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:var(--accent-primary, #C42759);color:#FADCD5;font-weight:700;font-size:13px;border:2px solid var(--bg-card, #2D222F);box-shadow:0 6px 16px rgba(27,12,26,0.38);">${count}</div>`,
     className: 'property-cluster-marker',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
@@ -55,9 +56,9 @@ function getPinIcon(price: number, isSelected: boolean): L.DivIcon {
   if (cached) return cached;
 
   const label = `${Math.round(price / 1000)}k ₸`;
-  const bg = isSelected ? '#C42759' : 'var(--bg-card, #FFFFFF)';
+  const bg = isSelected ? '#C42759' : 'var(--bg-card, #2D222F)';
   const color = isSelected ? '#FFFFFF' : 'var(--text-primary, #2C0107)';
-  const border = isSelected ? '#FFFFFF' : 'var(--accent-primary, #C42759)';
+  const border = isSelected ? '#C42759' : 'var(--accent-primary, #C42759)';
   const scale = isSelected ? 'transform:scale(1.08);' : '';
 
   const icon = L.divIcon({
@@ -73,8 +74,6 @@ function getPinIcon(price: number, isSelected: boolean): L.DivIcon {
 
 /**
  * Блокировка нативного скролла страницы, пока пользователь рисует контур пальцем.
- * overflow:hidden на html/body + preventDefault для touchmove на уровне документа
- * (iOS Safari игнорирует overflow:hidden на body, поэтому нужен второй уровень защиты).
  */
 function useLockPageScroll(locked: boolean) {
   useEffect(() => {
@@ -109,19 +108,28 @@ function useLockPageScroll(locked: boolean) {
 }
 
 /**
- * Рисование произвольной области (Lasso / Freehand Polygon) пальцем или мышкой.
+ * Плагин рисования произвольной области (Lasso / Freehand Polygon) пальцем или мышкой.
+ * Поддерживает принудительную очистку чернового слоя через clearSignal.
  */
 function LassoDrawController({
   isDrawingMode,
+  clearSignal,
   onCompletePolygon,
 }: {
   isDrawingMode: boolean;
+  clearSignal: number;
   onCompletePolygon: (ring: LatLngTuple[]) => void;
 }) {
   const map = useMap();
   const [draftPoints, setDraftPoints] = useState<LatLngTuple[]>([]);
   const isPointerDownRef = useRef(false);
   const pointsRef = useRef<LatLngTuple[]>([]);
+
+  useEffect(() => {
+    isPointerDownRef.current = false;
+    pointsRef.current = [];
+    setDraftPoints([]);
+  }, [clearSignal]);
 
   useEffect(() => {
     const container = map.getContainer();
@@ -133,7 +141,6 @@ function LassoDrawController({
       return;
     }
 
-    // Полностью отключаем жесты карты, чтобы свайп воспринимался только как рисование
     map.dragging.disable();
     map.touchZoom.disable();
     map.doubleClickZoom.disable();
@@ -205,7 +212,6 @@ function LassoDrawController({
       if (touch) addPoint(touch.clientX, touch.clientY);
     };
 
-    // capture: true — перехватываем события раньше внутренних обработчиков Leaflet
     container.addEventListener('mousedown', onMouseDown, true);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', finishStroke);
@@ -246,13 +252,35 @@ function LassoDrawController({
   );
 }
 
-/** Подгоняет масштаб карты под нарисованный контур сразу после его замыкания. */
-function FitToPolygon({ polygon }: { polygon: LatLngTuple[] | null }) {
+/**
+ * Управляет масштабом карты при рисовании и при сбросе полигона:
+ * - При замыкании контура приближает карту к нарисованной зоне.
+ * - При нажатии «Сбросить область» возвращает обзор ко всем объектам города.
+ */
+function PolygonViewportController({
+  polygon,
+  clearSignal,
+}: {
+  polygon: LatLngTuple[] | null;
+  clearSignal: number;
+}) {
   const map = useMap();
+  const prevClearSignal = useRef(clearSignal);
+
   useEffect(() => {
-    if (!polygon || polygon.length < 3) return;
-    map.fitBounds(L.latLngBounds(polygon), { padding: [28, 28], animate: true, maxZoom: 16 });
+    if (polygon && polygon.length >= 3) {
+      map.fitBounds(L.latLngBounds(polygon), { padding: [28, 28], animate: true, maxZoom: 16 });
+    }
   }, [polygon, map]);
+
+  useEffect(() => {
+    if (clearSignal !== prevClearSignal.current) {
+      prevClearSignal.current = clearSignal;
+      map.closePopup();
+      map.setView(DEFAULT_CENTER, DEFAULT_ZOOM, { animate: true });
+    }
+  }, [clearSignal, map]);
+
   return null;
 }
 
@@ -285,8 +313,6 @@ function ClusteredMarkers({
   });
 
   const index = useMemo(() => {
-    // Внутри нарисованной зоны кластеризация отключена: центроид кластера мог оказаться
-    // за пределами вогнутого контура, хотя все его квартиры находятся внутри.
     const sc = new Supercluster<PointProps>({ radius: 56, maxZoom: disableClustering ? 0 : 17 });
 
     const points: PointFeature<PointProps>[] = [];
@@ -404,17 +430,24 @@ function CatalogMapBase({
   drawnPolygon,
   onPolygonChange,
   fullscreen = false,
-}: Props) {
+}: MapComponentProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollAnchorRef = useRef<number | null>(null);
 
   const [isMobile, setIsMobile] = useState(false);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [localPolygon, setLocalPolygon] = useState<LatLngTuple[] | null>(drawnPolygon ?? null);
+  const [clearSignal, setClearSignal] = useState(0);
   const [selectedMobileProperty, setSelectedMobileProperty] = useState<Property | null>(null);
 
-  const isControlled = drawnPolygon !== undefined;
-  const activePolygon = isControlled ? drawnPolygon : localPolygon;
+  // Синхронизируем локальный стейт полигона при внешнем сбросе из родительского компонента
+  useEffect(() => {
+    if (drawnPolygon !== undefined) {
+      setLocalPolygon(drawnPolygon);
+    }
+  }, [drawnPolygon]);
+
+  const activePolygon = drawnPolygon !== undefined ? drawnPolygon : localPolygon;
   const hasPolygon = Boolean(activePolygon && activePolygon.length >= 3);
 
   useEffect(() => {
@@ -426,22 +459,21 @@ function CatalogMapBase({
 
   useLockPageScroll(isDrawingMode);
 
-  // Защитная фильтрация на уровне карты: метки рендерятся строго внутри контура,
-  // даже если родитель передал неотфильтрованный массив.
+  // Фильтрация меток на уровне карты: когда активен полигон, показываем строго объекты внутри контура;
+  // при сбросе полигона возвращаются абсолютно все доступные метки.
   const visibleProperties = useMemo(() => {
     if (!hasPolygon || !activePolygon) return properties;
     return properties.filter((p) => isPropertyInPolygon(p, activePolygon));
   }, [properties, activePolygon, hasPolygon]);
 
-  // Если выбранный на мобилке объект отфильтрован полигоном — закрываем шторку
+  const totalAvailableCount = totalBeforePolygon ?? properties.length;
+
   useEffect(() => {
     if (selectedMobileProperty && !visibleProperties.some((p) => p.id === selectedMobileProperty.id)) {
       setSelectedMobileProperty(null);
     }
   }, [visibleProperties, selectedMobileProperty]);
 
-  // Компенсация смещения страницы: после замыкания контура список над картой меняет высоту
-  // (скрывается витрина, сокращается сетка), и без этой поправки карта «уезжает» из-под пальца.
   const rememberScrollAnchor = () => {
     if (rootRef.current) scrollAnchorRef.current = rootRef.current.getBoundingClientRect().top;
   };
@@ -466,7 +498,9 @@ function CatalogMapBase({
   const handleClearPolygon = useCallback(() => {
     rememberScrollAnchor();
     setIsDrawingMode(false);
+    setSelectedMobileProperty(null);
     setLocalPolygon(null);
+    setClearSignal((prev) => prev + 1);
     onPolygonChange?.(null);
   }, [onPolygonChange]);
 
@@ -478,26 +512,26 @@ function CatalogMapBase({
   return (
     <div
       ref={rootRef}
-      className="relative w-full max-w-full overflow-hidden rounded-2xl border border-[#6D3C52]/15 bg-white shadow-[0_10px_30px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl dark:border-[#FADCD5]/12 dark:bg-[#2D222F] dark:shadow-[0_14px_36px_rgba(11,4,11,0.5)]"
+      className="relative w-full max-w-full overflow-hidden rounded-2xl border border-[#6D3C52]/12 bg-white shadow-[0_10px_30px_rgba(44,1,7,0.06)] transition-colors duration-300 sm:rounded-3xl dark:border-gray-800 dark:bg-[#2D222F] dark:shadow-[0_14px_36px_rgba(11,4,11,0.5)]"
     >
       {/* Компактная шапка карты */}
-      <div className="flex items-center justify-between gap-2 border-b border-[#6D3C52]/12 bg-[#FDF5F3] px-3 py-2 text-[11px] text-[#5A2D36] sm:px-5 sm:py-2.5 sm:text-xs dark:border-[#FADCD5]/12 dark:bg-[#241423] dark:text-[#DCBAB3]">
+      <div className="flex items-center justify-between gap-2 border-b border-[#6D3C52]/10 bg-[#FDF5F3] px-3.5 py-2.5 text-xs text-[#5A2D36] sm:px-5 sm:py-3 dark:border-gray-800 dark:bg-[#241423] dark:text-[#DCBAB3]">
         <span className="font-semibold uppercase tracking-wider text-[#2C0107] dark:text-[#FADCD5]">Карта ВКО</span>
-        <div className="flex items-center gap-1.5">
-          <span className="rounded-full bg-[#FADCD5]/70 px-2 py-0.5 text-[10px] font-bold text-[#550416] dark:bg-[#6D3C52] dark:text-[#FADCD5]">
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-[#FADCD5]/70 px-2.5 py-0.5 text-xs font-bold text-[#550416] dark:bg-[#6D3C52] dark:text-[#FADCD5]">
             {isDrawingMode
               ? 'Режим рисования'
               : hasPolygon
-                ? `В зоне: ${visibleProperties.length}${totalBeforePolygon ? ` из ${totalBeforePolygon}` : ''}`
+                ? `В зоне: ${visibleProperties.length} из ${totalAvailableCount}`
                 : `${visibleProperties.length} объ.`}
           </span>
           {hasPolygon && !isDrawingMode && (
             <button
               type="button"
               onClick={handleClearPolygon}
-              className="rounded-full bg-[#C42759] px-2.5 py-0.5 text-[10px] font-bold text-white transition hover:bg-[#550416] dark:bg-[#6D3C52]"
+              className="rounded-full bg-[#C42759] px-3 py-0.5 text-xs font-bold text-white transition hover:bg-[#550416] dark:bg-[#6D3C52]"
             >
-              Показать все {totalBeforePolygon ?? ''}
+              Очистить фильтр ({totalAvailableCount})
             </button>
           )}
         </div>
@@ -508,15 +542,30 @@ function CatalogMapBase({
           fullscreen ? 'h-[calc(100dvh-300px)] min-h-[300px] md:h-[560px]' : 'h-[340px] sm:h-[420px]'
         } ${isDrawingMode ? 'map-drawing' : ''}`}
       >
-        {/* Панель управления областью поверх карты */}
-        <div data-map-ui="true" className="absolute right-3 top-3 z-[500] flex flex-col items-end gap-1.5">
+        {/* Плавающие кнопки управления областью поверх карты (правый верхний угол) */}
+        <div
+          data-map-ui="true"
+          className="absolute right-3 top-3 z-[500] flex flex-col items-end gap-1.5 sm:flex-row sm:items-center"
+        >
+          {hasPolygon && !isDrawingMode && (
+            <button
+              type="button"
+              data-testid="reset-polygon-btn"
+              onClick={handleClearPolygon}
+              className="inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full border border-gray-800 bg-[#1B0C1A]/95 px-4 text-xs font-semibold text-[#FADCD5] shadow-[0_8px_22px_rgba(0,0,0,0.42)] backdrop-blur-md transition active:scale-95 hover:bg-[#C42759] hover:text-white"
+            >
+              <span>✕</span>
+              <span>Сбросить область</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={toggleDrawingMode}
-            className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold shadow-[0_6px_18px_rgba(27,12,26,0.28)] backdrop-blur-md transition active:scale-95 ${
+            className={`inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-xs font-semibold shadow-[0_6px_18px_rgba(27,12,26,0.28)] backdrop-blur-md transition active:scale-95 ${
               isDrawingMode
-                ? 'bg-[#C42759] text-white ring-2 ring-white/80'
-                : 'bg-white/95 text-[#2C0107] hover:bg-[#C42759] hover:text-white dark:bg-[#2D222F]/95 dark:text-[#FADCD5]'
+                ? 'bg-[#C42759] text-white'
+                : 'bg-white/95 text-[#2C0107] hover:bg-[#C42759] hover:text-white dark:border dark:border-gray-800 dark:bg-[#2D222F]/95 dark:text-[#FADCD5]'
             }`}
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -529,21 +578,6 @@ function CatalogMapBase({
             <span>{isDrawingMode ? 'Отмена' : hasPolygon ? 'Перерисовать' : 'Нарисовать область'}</span>
           </button>
         </div>
-
-        {/* Кнопка возврата в обычное состояние — в левом верхнем углу карты,
-            чтобы её не перекрывали Bottom Tab Bar и плавающая кнопка «Списком» */}
-        {hasPolygon && !isDrawingMode && (
-          <div data-map-ui="true" className="absolute left-3 top-3 z-[500]">
-            <button
-              type="button"
-              onClick={handleClearPolygon}
-              className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-[#1B0C1A]/90 px-3.5 text-xs font-semibold text-[#FADCD5] shadow-[0_8px_22px_rgba(0,0,0,0.4)] ring-1 ring-white/20 backdrop-blur-md transition active:scale-95 hover:bg-[#C42759]"
-            >
-              <span>✕</span>
-              <span>Очистить область</span>
-            </button>
-          </div>
-        )}
 
         {isDrawingMode && (
           <div
@@ -560,8 +594,12 @@ function CatalogMapBase({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          <LassoDrawController isDrawingMode={isDrawingMode} onCompletePolygon={handleCompletePolygon} />
-          <FitToPolygon polygon={hasPolygon ? activePolygon : null} />
+          <LassoDrawController
+            isDrawingMode={isDrawingMode}
+            clearSignal={clearSignal}
+            onCompletePolygon={handleCompletePolygon}
+          />
+          <PolygonViewportController polygon={hasPolygon ? activePolygon : null} clearSignal={clearSignal} />
 
           {hasPolygon && activePolygon && !isDrawingMode && (
             <Polygon
@@ -587,12 +625,12 @@ function CatalogMapBase({
         </MapContainer>
       </div>
 
-      {/* Мобильная шторка (Bottom Sheet) над Bottom Tab Bar */}
+      {/* Мобильная шторка (Bottom Sheet) над MobileBottomNav */}
       {isMobile && selectedMobileProperty && !isDrawingMode && (
         <div
           role="dialog"
           aria-label="Превью выбранного объекта"
-          className="fixed inset-x-3 bottom-[70px] z-40 rounded-2xl border border-[#6D3C52]/20 bg-white/98 p-2.5 shadow-[0_-8px_30px_rgba(27,12,26,0.28)] backdrop-blur-xl md:hidden dark:border-[#FADCD5]/18 dark:bg-[#2D222F]/98 dark:shadow-[0_-10px_34px_rgba(0,0,0,0.65)]"
+          className="fixed inset-x-3 bottom-[70px] z-40 rounded-2xl border border-[#6D3C52]/15 bg-white/98 p-2.5 shadow-[0_-8px_30px_rgba(27,12,26,0.28)] backdrop-blur-xl md:hidden dark:border-gray-800 dark:bg-[#2D222F]/98 dark:shadow-[0_-10px_34px_rgba(0,0,0,0.65)]"
         >
           <div className="mx-auto mb-1.5 h-1 w-8 rounded-full bg-[#6D3C52]/25 dark:bg-[#FADCD5]/25" />
           <div className="flex items-center gap-2.5">
@@ -662,4 +700,5 @@ function CatalogMapBase({
   );
 }
 
-export default memo(CatalogMapBase);
+export const MapComponent = memo(CatalogMapBase);
+export default MapComponent;

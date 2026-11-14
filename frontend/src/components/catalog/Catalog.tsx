@@ -1,21 +1,20 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCatalogFilters } from '@/hooks/useCatalogFilters';
 import { useProperties } from '@/hooks/useProperties';
 import { PAGE_SIZE, propertiesApi } from '@/lib/api/properties.api';
 import { getSessionUser, getToken } from '@/lib/auth';
-import { FALLBACK_UNSPLASH_URLS, formatAddress, formatPrice, resolvePropertyImageUrl } from '@/lib/format';
 import { isPropertyInPolygon } from '@/lib/geo/turf';
 import { Property } from '@/types/property';
 import { CatalogFilters } from './CatalogFilters';
-import type { LatLngTuple } from './CatalogMap';
+import { CatalogSpotlightCarousel } from './CatalogSpotlightCarousel';
+import type { LatLngTuple } from './MapComponent';
 import { PropertyCard } from './PropertyCard';
 
-const CatalogMap = dynamic(() => import('./CatalogMap'), {
+const MapComponent = dynamic(() => import('./MapComponent'), {
   ssr: false,
   loading: () => (
     <div className="flex h-[340px] items-center justify-center rounded-2xl bg-[#FADCD5]/35 text-xs text-[#5A2D36] sm:h-[420px] sm:rounded-3xl dark:bg-[#2D222F] dark:text-[#DCBAB3]">
@@ -24,6 +23,12 @@ const CatalogMap = dynamic(() => import('./CatalogMap'), {
   ),
 });
 
+/**
+ * Умный контейнер каталога (Smart Component):
+ * управляет загрузкой данных из API, фильтрами, состоянием полигона карты и избранным,
+ * передавая подготовленные данные в презентационные (Dumb/UI) компоненты:
+ * CatalogSpotlightCarousel, PropertyCard, MapComponent и FaqSection.
+ */
 export function Catalog() {
   const router = useRouter();
   const { filter, setFilter, resetFilter } = useCatalogFilters();
@@ -50,8 +55,7 @@ export function Catalog() {
     grid?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [filter.page]);
 
-  // Полноэкранная карта на мобильных: прокручиваем к началу и блокируем скролл страницы,
-  // чтобы жесты на карте не «утягивали» страницу вниз.
+  // Полноэкранная карта на мобильных: прокручиваем к началу и блокируем скролл страницы
   useEffect(() => {
     if (viewMode !== 'map') return;
     if (window.innerWidth >= 768) return;
@@ -164,7 +168,7 @@ export function Catalog() {
     [searchQuery, selectedRoomsChip],
   );
 
-  // Базовый пул объектов (до фильтрации нарисованной областью)
+  // Полный пул доступных объектов до гео-фильтрации полигоном
   const poolBeforePolygon = useMemo(
     () => filterBySearchAndRooms(mapProperties.length > 0 ? mapProperties : (data?.items ?? [])),
     [filterBySearchAndRooms, mapProperties, data?.items],
@@ -178,7 +182,6 @@ export function Catalog() {
 
   const hasPolygonFilter = Boolean(drawnPolygon && drawnPolygon.length >= 3);
 
-  // Проверяем, включен ли сейчас узкий пользовательский фильтр, поиск или нарисованная гео-область
   const hasActiveNarrowFilter = Boolean(
     searchQuery.trim() ||
       selectedRoomsChip !== null ||
@@ -192,7 +195,6 @@ export function Catalog() {
       filter.page > 1,
   );
 
-  // Отбираем в верхнюю витрину ТОЛЬКО объекты со спец-метками ("Ниже рынка" или "Без залога от хозяина")
   const specialDeals = useMemo(() => {
     return allFeedPool.filter((p) => p.is_good_price || (p.fromOwner && p.noDeposit)).slice(0, 6);
   }, [allFeedPool]);
@@ -200,7 +202,7 @@ export function Catalog() {
   const spotlightDeal = specialDeals[0] ?? null;
   const storyDeals = useMemo(() => specialDeals.slice(1, 6), [specialDeals]);
 
-  // Жизненная логика без дублей и с поддержкой фильтра по нарисованной зоне
+  // Жизненная логика без дублей и с поддержкой мгновенного возврата всех объектов при сбросе полигона
   const displayedGridItems = useMemo(() => {
     if (hasPolygonFilter) {
       return allFeedPool;
@@ -387,27 +389,27 @@ export function Catalog() {
       {/* Режим карты (переключается кнопкой FAB) */}
       {viewMode === 'map' ? (
         <section className="mx-auto w-full max-w-7xl px-3.5 py-2.5 md:px-8 md:py-4">
-          <div className="mb-2.5 flex items-center justify-between gap-2">
+          <div className="mb-3 flex items-center justify-between gap-2">
             <div>
-              <h2 className="font-serif text-base font-normal text-[#2C0107] sm:text-xl dark:text-[#FADCD5]">
+              <h2 className="font-serif text-lg font-normal text-[#2C0107] sm:text-2xl dark:text-[#FADCD5]">
                 Поиск <span className="italic text-[#C42759] dark:text-[#dcbab3]">на карте</span>
               </h2>
-              <p className="text-[11px] text-[#845962] dark:text-[#B08D87]">
+              <p className="text-xs text-[#845962] dark:text-[#B08D87]">
                 {hasPolygonFilter
                   ? `В выделенной зоне: ${allFeedPool.length} из ${poolBeforePolygon.length} объ.`
-                  : `Доступно ${allFeedPool.length} объектов · можно обвести район пальцем`}
+                  : `Доступно ${allFeedPool.length} объектов`}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setViewMode('feed')}
-              className="rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-[#2C0107] shadow-2xs dark:bg-[#2D222F] dark:text-[#FADCD5]"
+              className="inline-flex h-10 items-center rounded-full border border-[#6D3C52]/15 bg-white px-4 text-xs font-semibold text-[#2C0107] shadow-2xs dark:border-gray-800 dark:bg-[#2D222F] dark:text-[#FADCD5]"
             >
               ← К списку ({allFeedPool.length})
             </button>
           </div>
-          <CatalogMap
-            properties={allFeedPool}
+          <MapComponent
+            properties={poolBeforePolygon}
             totalBeforePolygon={poolBeforePolygon.length}
             drawnPolygon={drawnPolygon}
             onPolygonChange={setDrawnPolygon}
@@ -416,111 +418,16 @@ export function Catalog() {
         </section>
       ) : (
         <>
-          {/* Компактная асимметричная витрина «Успейте снять · ниже рынка» —
-              уменьшена по высоте и отступам, чтобы на первом экране без скролла помещалось начало основного списка */}
-          {!hasActiveNarrowFilter && spotlightDeal && (
-            <section className="pt-1.5 pb-2 md:pt-4 md:pb-6">
-              <div className="mx-auto max-w-7xl px-3.5 md:px-8">
-                <div className="mb-1.5 flex items-baseline justify-between">
-                  <h2 className="font-serif text-base font-normal tracking-tight text-[#2C0107] sm:text-xl dark:text-[#FADCD5]">
-                    Успейте снять · <span className="italic text-[#C42759] dark:text-[#dcbab3]">ниже рынка</span>
-                  </h2>
-                  <span className="text-[11px] text-[#845962] dark:text-[#B08D87]">Спецпредложения</span>
-                </div>
-
-                <div className="no-scrollbar -mx-3.5 flex snap-x snap-mandatory items-stretch gap-2.5 overflow-x-auto px-3.5 pb-1 md:mx-0 md:gap-3.5 md:px-0">
-                  {/* 1. Компактная акцентная карточка дня (Spotlight Card) */}
-                  <Link
-                    href={`/properties/${spotlightDeal.id}`}
-                    className="group relative flex h-[126px] w-[224px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl bg-[#2C0107] p-2.5 text-[#FADCD5] shadow-[0_8px_24px_rgba(44,1,7,0.16)] sm:h-[168px] sm:w-[310px] sm:rounded-3xl sm:p-4 dark:bg-[#2D222F]"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={resolvePropertyImageUrl(spotlightDeal.image_url, spotlightDeal.id)}
-                      alt={spotlightDeal.title}
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        if (target.src !== FALLBACK_UNSPLASH_URLS[0]) {
-                          target.src = FALLBACK_UNSPLASH_URLS[0];
-                        }
-                      }}
-                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                    />
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1B0C1A] via-[#1B0C1A]/50 to-[#1B0C1A]/15" />
-
-                    <div className="relative z-10 flex items-center justify-between gap-1.5">
-                      <span className="rounded-full bg-[#C42759] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white sm:px-2.5 sm:text-[10px]">
-                        ★ Выбор дня
-                      </span>
-                      <span className="rounded-full bg-black/45 px-2 py-0.5 text-[9px] font-medium text-[#FADCD5] backdrop-blur-md sm:text-[10px]">
-                        {spotlightDeal.rooms}-к · {spotlightDeal.area} м²
-                      </span>
-                    </div>
-
-                    <div className="relative z-10 mt-auto">
-                      <p className="text-base font-extrabold tracking-tight text-white sm:text-xl">
-                        {formatPrice(spotlightDeal.monthlyPrice)}
-                        <span className="text-[10px] font-normal text-[#DCBAB3]"> / мес.</span>
-                      </p>
-                      <p className="truncate text-[11px] font-medium text-[#FADCD5] sm:text-xs">
-                        {spotlightDeal.title}
-                      </p>
-                      <p className="truncate text-[10px] text-[#DCBAB3]/85">
-                        {spotlightDeal.address.district}, {formatAddress(spotlightDeal.address)}
-                      </p>
-                    </div>
-                  </Link>
-
-                  {/* 2. Компактные мини-карточки карусели */}
-                  {storyDeals.map((deal) => (
-                    <Link
-                      key={`story-${deal.id}`}
-                      href={`/properties/${deal.id}`}
-                      className="group relative flex h-[126px] w-[134px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl bg-[#2D222F] p-2.5 text-[#FADCD5] shadow-[0_8px_22px_rgba(44,1,7,0.12)] sm:h-[168px] sm:w-[164px] sm:rounded-3xl sm:p-3.5"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={resolvePropertyImageUrl(deal.image_url, deal.id)}
-                        alt={deal.title}
-                        onError={(e) => {
-                          const target = e.currentTarget;
-                          if (target.src !== FALLBACK_UNSPLASH_URLS[1]) {
-                            target.src = FALLBACK_UNSPLASH_URLS[1];
-                          }
-                        }}
-                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                      />
-                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1B0C1A]/95 via-[#1B0C1A]/35 to-transparent" />
-
-                      <div className="relative z-10 flex items-center justify-between">
-                        <span className="rounded-full bg-[#1B0C1A]/70 px-2 py-0.5 text-[9px] font-semibold text-[#FADCD5] backdrop-blur-md sm:text-[10px]">
-                          {deal.rooms}-к · {deal.area} м²
-                        </span>
-                      </div>
-
-                      <div className="relative z-10 mt-auto">
-                        <p className="text-xs font-extrabold tracking-tight text-white sm:text-sm">
-                          {formatPrice(deal.monthlyPrice)}
-                        </p>
-                        <p className="truncate text-[10px] font-medium text-[#FADCD5] sm:text-xs">
-                          {deal.address.district}
-                        </p>
-                        <p className="truncate text-[9px] text-[#DCBAB3]/80 sm:text-[10px]">
-                          {deal.address.street}, {deal.address.building}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </section>
+          {/* Компактная асимметричная витрина «Успейте снять · ниже рынка» (Dumb/UI) */}
+          {!hasActiveNarrowFilter && (
+            <CatalogSpotlightCarousel spotlightDeal={spotlightDeal} storyDeals={storyDeals} />
           )}
 
           {/* Основная выдача с плотными вертикальными отступами */}
           <section className="py-1.5 md:py-5">
-            <div className="mx-auto flex max-w-7xl flex-col gap-2.5 px-3.5 md:gap-5 md:px-8">
+            <div className="mx-auto flex max-w-7xl flex-col gap-3 px-3.5 md:gap-5 md:px-8">
               <div className="flex items-baseline justify-between gap-2">
-                <h2 className="font-serif text-base font-normal text-[#2C0107] sm:text-xl dark:text-[#FADCD5]">
+                <h2 className="font-serif text-lg font-normal text-[#2C0107] sm:text-2xl dark:text-[#FADCD5]">
                   {hasPolygonFilter ? (
                     <>
                       В выбранной <span className="italic text-[#C42759] dark:text-[#dcbab3]">зоне на карте</span>
@@ -536,7 +443,7 @@ export function Catalog() {
                   )}
                 </h2>
                 {data && (
-                  <span className="text-[11px] font-medium text-[#845962] dark:text-[#B08D87]">
+                  <span className="text-xs font-medium text-[#845962] dark:text-[#B08D87]">
                     {hasPolygonFilter
                       ? `${displayedGridItems.length} из ${poolBeforePolygon.length} объ.`
                       : `${data.total} объ. · стр. ${filter.page}/${totalPages}`}
@@ -642,16 +549,13 @@ export function Catalog() {
           {/* Карта с функцией рисования области в нижней части страницы */}
           <section className="pt-5 pb-4 md:pt-10">
             <div className="mx-auto max-w-7xl px-3.5 md:px-8">
-              <div className="mb-2.5 flex items-baseline justify-between gap-2">
-                <h2 className="font-serif text-base font-normal text-[#2C0107] sm:text-xl dark:text-[#FADCD5]">
+              <div className="mb-3 flex items-baseline justify-between gap-2">
+                <h2 className="font-serif text-lg font-normal text-[#2C0107] sm:text-2xl dark:text-[#FADCD5]">
                   Исследуйте районы <span className="italic text-[#C42759] dark:text-[#dcbab3]">на карте</span>
                 </h2>
-                <span className="text-[11px] text-[#845962] dark:text-[#B08D87]">
-                  Можно обвести зону пальцем или мышкой
-                </span>
               </div>
-              <CatalogMap
-                properties={allFeedPool}
+              <MapComponent
+                properties={poolBeforePolygon}
                 totalBeforePolygon={poolBeforePolygon.length}
                 drawnPolygon={drawnPolygon}
                 onPolygonChange={setDrawnPolygon}
@@ -666,7 +570,7 @@ export function Catalog() {
         <button
           type="button"
           onClick={() => setViewMode((prev) => (prev === 'feed' ? 'map' : 'feed'))}
-          className="inline-flex h-10 items-center gap-2 rounded-full border border-[#FADCD5]/20 bg-[#2C0107]/95 px-4 text-xs font-semibold tracking-wide text-[#FADCD5] shadow-[0_10px_26px_rgba(44,1,7,0.4)] backdrop-blur-md transition duration-200 active:scale-95 hover:bg-[#C42759] dark:bg-[#6D3C52]/95 dark:text-[#FADCD5]"
+          className="inline-flex h-11 items-center gap-2 rounded-full border border-[#6D3C52]/20 bg-[#2C0107]/95 px-5 text-xs font-semibold tracking-wide text-[#FADCD5] shadow-[0_10px_26px_rgba(44,1,7,0.4)] backdrop-blur-md transition duration-200 active:scale-95 hover:bg-[#C42759] dark:border-gray-800 dark:bg-[#6D3C52]/95 dark:text-[#FADCD5]"
         >
           {viewMode === 'feed' ? (
             <>

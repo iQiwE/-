@@ -47,9 +47,11 @@ export class PropertiesController {
     return this.service.findCatalog(filter);
   }
 
-  @Get('properties/:id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.findOne(id);
+  @Get('properties/my')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('LANDLORD')
+  findMyProperties(@CurrentUser() user: AuthUser) {
+    return this.service.findByOwner(user.id);
   }
 
   @Get('landlord/properties')
@@ -57,6 +59,11 @@ export class PropertiesController {
   @Roles('LANDLORD')
   findMine(@CurrentUser() user: AuthUser) {
     return this.service.findByOwner(user.id);
+  }
+
+  @Get('properties/:id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.service.findOne(id);
   }
 
   @Post('properties')
