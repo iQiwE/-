@@ -485,12 +485,21 @@ export default function LandlordPage() {
                 Управление резиденциями, геопозицией на карте, фотографиями и заявками арендаторов
               </p>
             </div>
-            <Link
-              href="/catalog"
-              className="inline-flex min-h-10 shrink-0 items-center rounded-full border border-[#6D3C52]/20 bg-white px-5 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#2C0107] shadow-2xs transition-all duration-300 hover:border-[#C42759] hover:text-[#C42759] dark:border-[#FADCD5]/15 dark:bg-[#2D222F] dark:text-[#FADCD5] dark:hover:bg-[#6D3C52]"
-            >
-              В каталог →
-            </Link>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Link
+                href="/database"
+                title="Закрытый инспектор таблиц СУБД Oracle (по PIN-коду)"
+                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-[#6D3C52]/20 bg-[#2C0107] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#FADCD5] shadow-2xs transition-all duration-300 hover:bg-[#C42759] dark:border-[#FADCD5]/15 dark:bg-[#6D3C52] dark:text-[#FADCD5]"
+              >
+                <span>🔒 СУБД Oracle</span>
+              </Link>
+              <Link
+                href="/catalog"
+                className="inline-flex min-h-10 shrink-0 items-center rounded-full border border-[#6D3C52]/20 bg-white px-5 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#2C0107] shadow-2xs transition-all duration-300 hover:border-[#C42759] hover:text-[#C42759] dark:border-[#FADCD5]/15 dark:bg-[#2D222F] dark:text-[#FADCD5] dark:hover:bg-[#6D3C52]"
+              >
+                В каталог →
+              </Link>
+            </div>
           </header>
 
           {notice && (

@@ -384,12 +384,62 @@ export function handleStaticFallbackGet<T>(
     return allProps as unknown as T;
   }
 
-  if (path === '/applications' || path === '/landlord/applications' || path === '/tenant/applications') {
+  if (
+    path === '/applications' ||
+    path === '/applications/incoming' ||
+    path === '/landlord/applications' ||
+    path === '/tenant/applications'
+  ) {
     if (typeof window !== 'undefined') {
       const raw = localStorage.getItem('velvet_static_applications');
       if (raw) return JSON.parse(raw) as T;
     }
-    return [] as unknown as T;
+    return [
+      {
+        id: 1,
+        propertyId: 3,
+        propertyTitle: 'Уютная студия в районе КШТ',
+        tenantName: 'Анна Смирнова',
+        tenantPhone: '+7 (777) 245-18-90',
+        desiredStartDate: '2026-12-01',
+        leaseMonths: 12,
+        status: 'PENDING',
+        message: 'Готова внести оплату за первый месяц в день подписания договора.',
+        createdAt: '2026-11-15T11:20:00Z',
+      },
+      {
+        id: 2,
+        propertyId: 1,
+        propertyTitle: 'Видовая 2-комнатная квартира на пр. Назарбаева',
+        tenantName: 'Дамир Касымов',
+        tenantPhone: '+7 (701) 512-44-09',
+        desiredStartDate: '2026-11-25',
+        leaseMonths: 6,
+        status: 'APPROVED',
+        message: 'Командировка в Усть-Каменогорск на полгода, без животных.',
+        createdAt: '2026-11-10T14:05:00Z',
+      },
+    ] as unknown as T;
+  }
+
+  if (path === '/contracts/my' || path === '/contracts') {
+    if (typeof window !== 'undefined') {
+      const raw = localStorage.getItem('velvet_static_contracts');
+      if (raw) return JSON.parse(raw) as T;
+    }
+    return [
+      {
+        id: 101,
+        applicationId: 2,
+        propertyId: 1,
+        propertyTitle: 'Видовая 2-комнатная квартира на пр. Назарбаева',
+        tenantName: 'Дамир Касымов',
+        startDate: '2026-11-25',
+        endDate: '2027-05-25',
+        monthlyAmount: 210000,
+        status: 'ACTIVE',
+      },
+    ] as unknown as T;
   }
 
   if (path === '/favorites') {
@@ -541,4 +591,145 @@ export function handleStaticFallbackMutation<T>(
   }
 
   return { contractId: 1, paymentsCreated: 12 } as unknown as T;
+}
+
+export function getOracleTablesSnapshot(overrideProps?: Property[]) {
+  const props = overrideProps && overrideProps.length > 0 ? overrideProps : getStoredProps();
+
+  const propertyTypes = [
+    { TYPE_ID: 1, CODE: 'APARTMENT', NAME: 'Квартира' },
+    { TYPE_ID: 2, CODE: 'STUDIO', NAME: 'Студия' },
+    { TYPE_ID: 3, CODE: 'SUITES', NAME: 'Апартаменты' },
+    { TYPE_ID: 4, CODE: 'LOFT', NAME: 'Лофт' },
+  ];
+
+  const users = [
+    {
+      ID: 1,
+      FULL_NAME: 'Иван Петров',
+      EMAIL: 'landlord@example.com',
+      PHONE: '+7 (705) 111-22-33',
+      ROLE: 'LANDLORD',
+      PASSWORD_HASH: '$2b$10$wK9xV...8eQ1u (bcrypt, 10 rounds)',
+      CREATED_AT: '2026-10-01T09:00:00Z',
+    },
+    {
+      ID: 2,
+      FULL_NAME: 'Анна Смирнова',
+      EMAIL: 'tenant@example.com',
+      PHONE: '+7 (777) 245-18-90',
+      ROLE: 'TENANT',
+      PASSWORD_HASH: '$2b$10$pL3mN...4rT9z (bcrypt, 10 rounds)',
+      CREATED_AT: '2026-10-03T12:15:00Z',
+    },
+    {
+      ID: 3,
+      FULL_NAME: 'Дамир Касымов',
+      EMAIL: 'damir.k@example.com',
+      PHONE: '+7 (701) 512-44-09',
+      ROLE: 'TENANT',
+      PASSWORD_HASH: '$2b$10$kM7bC...2vX5w (bcrypt, 10 rounds)',
+      CREATED_AT: '2026-10-12T16:40:00Z',
+    },
+  ];
+
+  const addresses = props.map((p, idx) => ({
+    ADDRESS_ID: p.id ?? idx + 1,
+    CITY: p.address.city,
+    DISTRICT: p.address.district,
+    STREET: p.address.street,
+    BUILDING: p.address.building,
+    APARTMENT: p.address.apartment ?? '—',
+    LAT: Number(p.latitude).toFixed(4),
+    LNG: Number(p.longitude).toFixed(4),
+  }));
+
+  const properties = props.map((p) => ({
+    PROPERTY_ID: p.id,
+    LANDLORD_ID: p.ownerId ?? 1,
+    TYPE_ID: p.type?.id ?? 1,
+    ADDRESS_ID: p.id,
+    TITLE: p.title,
+    ROOMS: p.rooms,
+    AREA: `${p.area} м²`,
+    MONTHLY_PRICE: `${p.monthlyPrice.toLocaleString('ru-RU')} ₸`,
+    PETS_ALLOWED: p.petsAllowed ? 1 : 0,
+    NO_DEPOSIT: p.noDeposit ? 1 : 0,
+    FROM_OWNER: p.fromOwner ? 1 : 0,
+    STATUS: p.status,
+  }));
+
+  const applications = handleStaticFallbackGet<any[]>('/applications/incoming').map((a, idx) => ({
+    APPLICATION_ID: a.id ?? idx + 1,
+    PROPERTY_ID: a.propertyId ?? 1,
+    TENANT_ID: idx === 0 ? 2 : 3,
+    DESIRED_START_DATE: a.desiredStartDate ?? '2026-12-01',
+    LEASE_MONTHS: a.leaseMonths ?? 12,
+    STATUS: a.status ?? 'PENDING',
+    MESSAGE: a.message ?? '—',
+  }));
+
+  const contracts = [
+    {
+      CONTRACT_ID: 101,
+      APPLICATION_ID: 2,
+      PROPERTY_ID: 1,
+      TENANT_ID: 3,
+      START_DATE: '2026-11-25',
+      END_DATE: '2027-05-25',
+      MONTHLY_AMOUNT: '210 000 ₸',
+      STATUS: 'ACTIVE',
+    },
+  ];
+
+  const payments = [
+    {
+      PAYMENT_ID: 1001,
+      CONTRACT_ID: 101,
+      DUE_DATE: '2026-11-25',
+      AMOUNT: '210 000 ₸',
+      PAID_AT: '2026-11-25 10:14:00',
+      STATUS: 'PAID',
+    },
+    {
+      PAYMENT_ID: 1002,
+      CONTRACT_ID: 101,
+      DUE_DATE: '2026-12-25',
+      AMOUNT: '210 000 ₸',
+      PAID_AT: '—',
+      STATUS: 'PENDING',
+    },
+    {
+      PAYMENT_ID: 1003,
+      CONTRACT_ID: 101,
+      DUE_DATE: '2027-01-25',
+      AMOUNT: '210 000 ₸',
+      PAID_AT: '—',
+      STATUS: 'PENDING',
+    },
+    {
+      PAYMENT_ID: 1004,
+      CONTRACT_ID: 101,
+      DUE_DATE: '2027-02-25',
+      AMOUNT: '210 000 ₸',
+      PAID_AT: '—',
+      STATUS: 'PENDING',
+    },
+  ];
+
+  const favorites = [
+    { USER_ID: 2, PROPERTY_ID: 1, CREATED_AT: '2026-11-12 18:20:00' },
+    { USER_ID: 2, PROPERTY_ID: 3, CREATED_AT: '2026-11-14 09:45:00' },
+  ];
+
+  return {
+    PROPERTIES: properties,
+    ADDRESSES: addresses,
+    USERS: users,
+    PROPERTY_TYPES: propertyTypes,
+    RENTAL_APPLICATIONS: applications,
+    CONTRACTS: contracts,
+    PAYMENTS: payments,
+    FAVORITES: favorites,
+  };
 }
