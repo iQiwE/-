@@ -35,10 +35,26 @@ export function resolvePropertyImageUrl(imageUrl?: string | null, propertyId = 1
     return fallback;
   }
   if (trimmed.startsWith('/uploads/')) {
+    const configuredEnvUrl =
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.REACT_APP_API_URL ||
+      process.env.VITE_API_URL;
     if (typeof window !== 'undefined' && window.location?.hostname) {
-      return `http://${window.location.hostname}:4000${trimmed}`;
+      const host = window.location.hostname;
+      const isLocalNetwork =
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host.startsWith('192.168.') ||
+        host.startsWith('10.');
+      if (isLocalNetwork) {
+        return `http://${host}:4000${trimmed}`;
+      }
+      if (configuredEnvUrl) {
+        return `${configuredEnvUrl.replace(/\/api\/v1\/?$/, '')}${trimmed}`;
+      }
+      return fallback;
     }
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.3.119:4000/api/v1';
+    const apiBase = configuredEnvUrl ?? 'http://localhost:4000/api/v1';
     const serverOrigin = apiBase.replace(/\/api\/v1\/?$/, '');
     return `${serverOrigin}${trimmed}`;
   }

@@ -4,6 +4,9 @@ import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 function ensureEnvLoaded(): void {
@@ -32,32 +35,76 @@ export function getUploadsDir(): string {
 async function bootstrap() {
   ensureEnvLoaded();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Доверяем первому прокси (Render / Railway / Nginx) для корректной работы rate-limit и Secure cookies
+  app.set('trust proxy', 1);
+
+  // 1. Защита HTTP-заголовков (Helmet: XSS-filter, HSTS, X-Frame-Options, nosniff)
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
+  // 2. Парсинг защищенных HttpOnly куки (JWT-токен)
+  app.use(cookieParser());
+
+  // 3. Защита от брутфорса и парсинга (express-rate-limit)
+  const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 минут
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      statusCode: 429,
+      message: 'Слишком много запросов с вашего IP-адреса. Пожалуйста, повторите попытку позже.',
+    },
+  });
+
+  const authBruteforceLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 минут
+    max: 25,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      statusCode: 429,
+      message: 'Превышен лимит попыток авторизации. Пожалуйста, подождите 15 минут.',
+    },
+  });
+
+  app.use('/api/v1', globalLimiter);
+  app.use('/api/v1/auth/login', authBruteforceLimiter);
+  app.use('/api/v1/auth/register', authBruteforceLimiter);
+
   const uploadsDir = getUploadsDir();
   app.useStaticAssets(uploadsDir, { prefix: '/uploads/' });
   app.setGlobalPrefix('api/v1');
 
+  // 4. Строгая политика CORS без Origin: '*'
   const envOrigins = (process.env.FRONTEND_URL ?? '')
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
   const allowedOrigins = new Set<string>([
-    'http://192.168.3.119:3000',
-    'http://192.168.0.123:3000',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'http://192.168.1.102:3000',
+    'http://192.168.3.119:3000',
+    'http://192.168.0.123:3000',
     ...envOrigins,
   ]);
-  // Гарантируем, что '*' никогда не попадет в белый список CORS
   allowedOrigins.delete('*');
 
-  // Разрешаем также локальные приватные IPv4-адреса Wi-Fi (RFC 1918) строго на порту 3000,
-  // чтобы при переподключении к другой точке Wi-Fi доступ не блокировался, но внешние домены отсекались
   const localLanOriginRegex =
     /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}):3000$/;
 
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin) || localLanOriginRegex.test(origin)) {
+      if (
+        !origin ||
+        allowedOrigins.has(origin) ||
+        (process.env.NODE_ENV !== 'production' && localLanOriginRegex.test(origin))
+      ) {
         callback(null, true);
       } else {
         callback(null, false);

@@ -5,16 +5,19 @@ import {
   ConflictException,
   Controller,
   Get,
+  HttpCode,
   Injectable,
   Logger,
   Module,
   OnApplicationBootstrap,
   Post,
+  Res,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import type { Response } from 'express';
 import oracledb from 'oracledb';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -22,6 +25,29 @@ import { AuthUser, UserRole } from '../../common/types/auth-user';
 import { OracleService } from '../../database/oracle.service';
 
 const BCRYPT_SALT_ROUNDS = 10;
+const AUTH_COOKIE_NAME = 'auth_token';
+const AUTH_COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 часа
+
+function setHttpOnlyAuthCookie(res: Response, token: string): void {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.cookie(AUTH_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/',
+    maxAge: AUTH_COOKIE_MAX_AGE_MS,
+  });
+}
+
+function clearHttpOnlyAuthCookie(res: Response): void {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.clearCookie(AUTH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/',
+  });
+}
 
 export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, BCRYPT_SALT_ROUNDS);
@@ -29,11 +55,9 @@ export async function hashPassword(plain: string): Promise<string> {
 
 export async function verifyPassword(plain: string, storedHash: string): Promise<boolean> {
   if (!storedHash || !plain) return false;
-  // Современный bcrypt-хэш ($2a$, $2b$, $2y$)
   if (storedHash.startsWith('$2a$') || storedHash.startsWith('$2b$') || storedHash.startsWith('$2y$')) {
     return bcrypt.compare(plain, storedHash);
   }
-  // Обратная совместимость для существующих записей с SHA-256 (с защитой от timing-атак)
   const sha256Hex = createHash('sha256').update(plain).digest('hex');
   if (storedHash.length !== sha256Hex.length) return false;
   return timingSafeEqual(Buffer.from(sha256Hex), Buffer.from(storedHash));
@@ -61,7 +85,6 @@ export class AuthService implements OnApplicationBootstrap {
     private readonly jwt: JwtService,
   ) {}
 
-  /** Если таблицы LANDLORDS / TENANTS пусты, автоматически вставляет демонстрационных пользователей. */
   async onApplicationBootstrap(): Promise<void> {
     const demoPassword = process.env.DEMO_USER_PASSWORD ?? 'demo123';
     const existingLandlord = await this.db.query<any>(
@@ -198,13 +221,25 @@ export class AuthController {
   constructor(private readonly service: AuthService) {}
 
   @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.service.register(dto);
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.service.register(dto);
+    setHttpOnlyAuthCookie(res, result.token);
+    return { user: result.user };
   }
 
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.service.login(dto);
+  @HttpCode(200)
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.service.login(dto);
+    setHttpOnlyAuthCookie(res, result.token);
+    return { user: result.user };
+  }
+
+  @Post('logout')
+  @HttpCode(200)
+  logout(@Res({ passthrough: true }) res: Response) {
+    clearHttpOnlyAuthCookie(res);
+    return { ok: true };
   }
 
   @Get('me')

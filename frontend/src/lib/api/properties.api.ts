@@ -25,12 +25,17 @@ export const propertiesApi = {
     const formData = new FormData();
     formData.append('file', file);
 
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    };
+    if (token && token !== 'httponly-cookie-session') {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${getApiBaseUrl()}/properties/${propertyId}/image`, {
       method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
+      credentials: 'include',
       body: formData,
     });
 

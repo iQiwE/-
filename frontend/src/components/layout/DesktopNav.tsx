@@ -31,11 +31,11 @@ export function DesktopNav() {
     const cached = getSessionUser();
     setUser(cached);
 
-    const token = localStorage.getItem('auth_token');
-    if (token) {
+    if (cached) {
       const baseUrl = getApiBaseUrl();
       fetch(`${baseUrl}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
       })
         .then((r) => (r.ok ? r.json() : null))
         .then((dbUser) => {

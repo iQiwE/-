@@ -1,8 +1,12 @@
-# Dependencies
+# =============================================================================
+# Безопасный .gitignore — Защита секретов, ПДН, дампов БД и приватных ключей
+# =============================================================================
+
+# Зависимости
 node_modules/
 **/node_modules/
 
-# Build outputs
+# Артефакты сборки
 dist/
 **/dist/
 build/
@@ -12,24 +16,56 @@ build/
 out/
 **/out/
 
-# TypeScript & caches
+# Переменные окружения и секреты (строго запрещены к коммиту)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.*
+**/.env
+**/.env.local
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Дампы баз данных, снапшоты с ПДН и резервные копии
+*.dmp
+*.dump
+*.bak
+*.sql.gz
+*.sqlite
+*.sqlite3
+*.db
+oracle-data-snapshot.json
+**/oracle-data-snapshot.json
+
+# Приватные ключи, сертификаты и Oracle Wallet
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+*.der
+wallet/
+**/wallet/
+cwallet.sso
+ewallet.p12
+
+# Загруженные пользовательские файлы и логи
+backend/uploads/*
+!backend/uploads/.gitkeep
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Кэш TypeScript и ОС / IDE
 *.tsbuildinfo
 **/*.tsbuildinfo
 next-env.d.ts
-
-# Environment variables
-.env
-.env.local
-.env.*
-!.env.example
-
-# Runtime snapshots & logs
-oracle-data-snapshot.json
-**/oracle-data-snapshot.json
-*.log
-npm-debug.log*
-
-# OS / IDE
 .DS_Store
 Thumbs.db
 .idea/

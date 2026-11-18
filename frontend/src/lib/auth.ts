@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from './api/client';
+
 export interface SessionUser {
   id: number;
   fullName: string;
@@ -6,23 +8,28 @@ export interface SessionUser {
 }
 
 export interface AuthSession {
-  token: string;
+  token?: string;
   user: SessionUser;
 }
 
-const TOKEN_KEY = 'auth_token';
+const LEGACY_TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
+export const HTTPONLY_COOKIE_SENTINEL = 'httponly-cookie-session';
 
+/**
+ * Сохраняет только нечувствительный публичный профиль пользователя для UI.
+ * Сам JWT-токен устанавливается бэкендом в защищенную HttpOnly + Secure cookie
+ * и недоступен для чтения из JavaScript (защита от XSS-кражи токенов).
+ */
 export function saveSession(session: AuthSession): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(TOKEN_KEY, session.token);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
   localStorage.setItem(USER_KEY, JSON.stringify(session.user));
-  document.cookie = `auth_token=${encodeURIComponent(session.token)}; path=/; max-age=86400; SameSite=Lax`;
 }
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(TOKEN_KEY);
+  return getSessionUser() ? HTTPONLY_COOKIE_SENTINEL : null;
 }
 
 export function getSessionUser(): SessionUser | null {
@@ -38,8 +45,10 @@ export function getSessionUser(): SessionUser | null {
 
 export function clearSession(): void {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
-  document.cookie = 'auth_token=; path=/; max-age=0';
+  fetch(`${getApiBaseUrl()}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  }).catch(() => {});
 }
-
