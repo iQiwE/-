@@ -541,8 +541,21 @@ export class InMemoryOracleStore {
     });
 
     // Гарантируем, что у всех объектов в памяти заполнены валидный IMAGE_URL и координаты LATITUDE/LONGITUDE
+    const rentedPropertyIds = new Set<number>([
+      ...this.state.contracts
+        .filter((c: any) => c.STATUS === 'ACTIVE')
+        .map((c: any) => Number(c.PROPERTY_ID)),
+      ...this.state.applications
+        .filter((a: any) => a.STATUS === 'APPROVED')
+        .map((a: any) => Number(a.PROPERTY_ID)),
+    ]);
+
     for (const p of this.state.properties as any[]) {
-      p.IMAGE_URL = sanitizePropertyImageUrl(p.IMAGE_URL, Number(p.PROPERTY_ID));
+      const propId = Number(p.PROPERTY_ID);
+      if (rentedPropertyIds.has(propId)) {
+        p.STATUS = 'RENTED';
+      }
+      p.IMAGE_URL = sanitizePropertyImageUrl(p.IMAGE_URL, propId);
       const addr = this.state.addresses.find((a) => a.ADDRESS_ID === p.ADDRESS_ID);
       if (p.LATITUDE === undefined || p.LATITUDE === null) {
         p.LATITUDE = Number(addr?.LAT ?? 49.953);
@@ -614,6 +627,15 @@ export class InMemoryOracleStore {
     }
     if (norm === 'SELECT * FROM PROPERTIES ORDER BY PROPERTY_ID') {
       return [...this.state.properties] as unknown as T[];
+    }
+    if (norm === 'SELECT * FROM ADDRESSES ORDER BY ADDRESS_ID') {
+      return [...this.state.addresses] as unknown as T[];
+    }
+    if (norm === 'SELECT * FROM CONTRACTS ORDER BY CONTRACT_ID') {
+      return [...this.state.contracts] as unknown as T[];
+    }
+    if (norm === 'SELECT * FROM PAYMENTS ORDER BY PAYMENT_ID') {
+      return [...this.state.payments] as unknown as T[];
     }
     if (norm.includes('FROM PROPERTIES') && !norm.includes('JOIN') && binds.id !== undefined) {
       return this.state.properties.filter((p) => Number(p.PROPERTY_ID) === Number(binds.id)) as unknown as T[];

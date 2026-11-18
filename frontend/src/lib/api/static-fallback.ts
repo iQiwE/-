@@ -411,22 +411,6 @@ const SEED_PROPERTIES: Property[] = [
   },
 ];
 
-function getStoredProps(): Property[] {
-  if (typeof window === 'undefined') return SEED_PROPERTIES;
-  try {
-    const raw = localStorage.getItem('velvet_static_properties_v2');
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return SEED_PROPERTIES;
-}
-
-function saveStoredProps(props: Property[]) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem('velvet_static_properties_v2', JSON.stringify(props));
-  } catch {}
-}
-
 const SEED_APPLICATIONS = [
   {
     id: 1,
@@ -442,8 +426,8 @@ const SEED_APPLICATIONS = [
   },
   {
     id: 2,
-    propertyId: 1,
-    propertyTitle: 'Видовая 2-комнатная квартира на пр. Назарбаева',
+    propertyId: 13,
+    propertyTitle: 'Резиденция с камином и террасой на пр. Ауэзова',
     tenantName: 'Дамир Касымов',
     tenantPhone: '+7 (701) 512-44-09',
     desiredStartDate: '2026-11-25',
@@ -457,7 +441,7 @@ const SEED_APPLICATIONS = [
 function getStoredApplications(): any[] {
   if (typeof window === 'undefined') return SEED_APPLICATIONS;
   try {
-    const raw = localStorage.getItem('velvet_static_applications');
+    const raw = localStorage.getItem('velvet_static_applications_v2');
     if (raw) return JSON.parse(raw);
   } catch {}
   return SEED_APPLICATIONS.map((a) => ({ ...a }));
@@ -466,7 +450,32 @@ function getStoredApplications(): any[] {
 function saveStoredApplications(apps: any[]) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem('velvet_static_applications', JSON.stringify(apps));
+    localStorage.setItem('velvet_static_applications_v2', JSON.stringify(apps));
+  } catch {}
+}
+
+function getStoredProps(): Property[] {
+  let props = SEED_PROPERTIES.map((p) => ({ ...p }));
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('velvet_static_properties_v3');
+      if (raw) {
+        props = JSON.parse(raw);
+      }
+    } catch {}
+  }
+  const approvedPropIds = new Set(
+    getStoredApplications()
+      .filter((a: any) => a.status === 'APPROVED')
+      .map((a: any) => Number(a.propertyId)),
+  );
+  return props.map((p) => (approvedPropIds.has(Number(p.id)) ? { ...p, status: 'RENTED' as const } : p));
+}
+
+function saveStoredProps(props: Property[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('velvet_static_properties_v3', JSON.stringify(props));
   } catch {}
 }
 
@@ -475,6 +484,10 @@ export function handleStaticFallbackGet<T>(
   params: Record<string, string | number | boolean | undefined> = {},
 ): T {
   const allProps = getStoredProps();
+
+  if (path === '/dictionaries/db-snapshot') {
+    return getOracleTablesSnapshot() as unknown as T;
+  }
 
   if (path === '/dictionaries/districts') {
     const districts = Array.from(new Set(allProps.map((p) => p.address.district))).sort();
@@ -680,6 +693,10 @@ export function handleStaticFallbackMutation<T>(
   const activateMatch = path.match(/^\/properties\/(\d+)\/activate$/);
   if (activateMatch && method === 'PATCH') {
     const propId = Number(activateMatch[1]);
+    const apps = getStoredApplications().map((a: any) =>
+      Number(a.propertyId) === propId && a.status === 'APPROVED' ? { ...a, status: 'CLOSED' } : a,
+    );
+    saveStoredApplications(apps);
     const updated = getStoredProps().map((p) =>
       Number(p.id) === propId ? { ...p, status: 'AVAILABLE' as const } : p,
     );
@@ -829,7 +846,8 @@ export function getOracleTablesSnapshot(overrideProps?: Property[]) {
     STATUS: p.status,
   }));
 
-  const applications = handleStaticFallbackGet<any[]>('/applications/incoming').map((a, idx) => ({
+  const rawApps = getStoredApplications();
+  const applications = rawApps.map((a, idx) => ({
     APPLICATION_ID: a.id ?? idx + 1,
     PROPERTY_ID: a.propertyId ?? 1,
     TENANT_ID: idx === 0 ? 2 : 3,
@@ -839,53 +857,48 @@ export function getOracleTablesSnapshot(overrideProps?: Property[]) {
     MESSAGE: a.message ?? '—',
   }));
 
-  const contracts = [
-    {
-      CONTRACT_ID: 101,
-      APPLICATION_ID: 2,
-      PROPERTY_ID: 1,
-      TENANT_ID: 3,
-      START_DATE: '2026-11-25',
-      END_DATE: '2027-05-25',
-      MONTHLY_AMOUNT: '210 000 ₸',
+  const approvedApps = rawApps.filter((a: any) => a.status === 'APPROVED');
+  const contracts = approvedApps.map((a: any, idx: number) => {
+    const prop = props.find((p) => Number(p.id) === Number(a.propertyId));
+    const monthly = prop?.monthlyPrice ?? 210000;
+    const startStr = String(a.desiredStartDate ?? '2026-12-01').slice(0, 10);
+    const startDate = new Date(startStr);
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + Number(a.leaseMonths ?? 12));
+    return {
+      CONTRACT_ID: 100 + Number(a.id ?? idx + 1),
+      APPLICATION_ID: Number(a.id ?? idx + 1),
+      PROPERTY_ID: Number(a.propertyId ?? 1),
+      TENANT_ID: Number(a.id) === 1 ? 2 : 3,
+      START_DATE: startStr,
+      END_DATE: endDate.toISOString().slice(0, 10),
+      MONTHLY_AMOUNT: `${monthly.toLocaleString('ru-RU')} ₸`,
       STATUS: 'ACTIVE',
-    },
-  ];
+    };
+  });
 
-  const payments = [
-    {
-      PAYMENT_ID: 1001,
-      CONTRACT_ID: 101,
-      DUE_DATE: '2026-11-25',
-      AMOUNT: '210 000 ₸',
-      PAID_AT: '2026-11-25 10:14:00',
-      STATUS: 'PAID',
-    },
-    {
-      PAYMENT_ID: 1002,
-      CONTRACT_ID: 101,
-      DUE_DATE: '2026-12-25',
-      AMOUNT: '210 000 ₸',
-      PAID_AT: '—',
-      STATUS: 'PENDING',
-    },
-    {
-      PAYMENT_ID: 1003,
-      CONTRACT_ID: 101,
-      DUE_DATE: '2027-01-25',
-      AMOUNT: '210 000 ₸',
-      PAID_AT: '—',
-      STATUS: 'PENDING',
-    },
-    {
-      PAYMENT_ID: 1004,
-      CONTRACT_ID: 101,
-      DUE_DATE: '2027-02-25',
-      AMOUNT: '210 000 ₸',
-      PAID_AT: '—',
-      STATUS: 'PENDING',
-    },
-  ];
+  const payments: any[] = [];
+  let paymentSeq = 1000;
+  approvedApps.forEach((a: any, idx: number) => {
+    const contractId = 100 + Number(a.id ?? idx + 1);
+    const prop = props.find((p) => Number(p.id) === Number(a.propertyId));
+    const monthly = prop?.monthlyPrice ?? 210000;
+    const months = Math.min(Number(a.leaseMonths ?? 6), 12);
+    const startDate = new Date(String(a.desiredStartDate ?? '2026-12-01').slice(0, 10));
+    for (let m = 0; m < months; m++) {
+      const due = new Date(startDate);
+      due.setMonth(due.getMonth() + m);
+      const dueStr = due.toISOString().slice(0, 10);
+      payments.push({
+        PAYMENT_ID: ++paymentSeq,
+        CONTRACT_ID: contractId,
+        DUE_DATE: dueStr,
+        AMOUNT: `${monthly.toLocaleString('ru-RU')} ₸`,
+        PAID_AT: m === 0 ? `${dueStr} 10:15:00` : '—',
+        STATUS: m === 0 ? 'PAID' : 'PENDING',
+      });
+    }
+  });
 
   const favorites = [
     { USER_ID: 2, PROPERTY_ID: 1, CREATED_AT: '2026-11-12 18:20:00' },

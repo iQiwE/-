@@ -86,16 +86,20 @@ export class OracleService implements OnModuleInit, OnModuleDestroy {
   /** Выполняет work в одной транзакции: COMMIT при успехе, ROLLBACK при ошибке. */
   async transaction<T>(work: (tx: TxConnection) => Promise<T>): Promise<T> {
     if (this.mockStore) return this.mockStore.transaction(() => work({ isMockTx: true }));
-    const conn = await this.pool!.getConnection();
+    const connection = await this.pool!.getConnection();
     try {
-      const result = await work(conn);
-      await conn.commit();
+      const result = await work(connection);
+      await connection.commit();
       return result;
     } catch (error) {
-      await conn.rollback();
+      if (connection) {
+        await connection.rollback();
+      }
       throw error;
     } finally {
-      await conn.close();
+      if (connection) {
+        await connection.close();
+      }
     }
   }
 

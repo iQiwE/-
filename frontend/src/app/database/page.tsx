@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { propertiesApi } from '@/lib/api/properties.api';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { apiGet } from '@/lib/api/client';
 import { getOracleTablesSnapshot } from '@/lib/api/static-fallback';
-import { Property } from '@/types/property';
 
 type TableName =
   | 'PROPERTIES'
@@ -128,7 +127,21 @@ export default function DatabaseInspectorPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'RENTED'>('ALL');
   const [showSql, setShowSql] = useState(true);
-  const [liveProps, setLiveProps] = useState<Property[]>([]);
+  const [liveSnapshot, setLiveSnapshot] = useState<Record<string, any> | null>(null);
+
+  const refreshSnapshot = useCallback(() => {
+    apiGet<Record<string, any>>('/dictionaries/db-snapshot')
+      .then((res) => {
+        if (res && Array.isArray(res.PROPERTIES)) {
+          setLiveSnapshot(res);
+        } else {
+          setLiveSnapshot(getOracleTablesSnapshot());
+        }
+      })
+      .catch(() => {
+        setLiveSnapshot(getOracleTablesSnapshot());
+      });
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -146,13 +159,10 @@ export default function DatabaseInspectorPage() {
 
   useEffect(() => {
     if (!unlocked) return;
-    propertiesApi
-      .getAllForMap({})
-      .then((res) => setLiveProps(res.items))
-      .catch(() => {});
-  }, [unlocked]);
+    refreshSnapshot();
+  }, [unlocked, refreshSnapshot]);
 
-  const snapshot = useMemo(() => getOracleTablesSnapshot(liveProps), [liveProps]);
+  const snapshot = useMemo(() => liveSnapshot ?? getOracleTablesSnapshot(), [liveSnapshot]);
   const currentMeta = TABLES_META.find((t) => t.name === activeTable) ?? TABLES_META[0];
   const rawRows: Record<string, any>[] = (snapshot as any)[activeTable] ?? [];
 
@@ -318,6 +328,13 @@ export default function DatabaseInspectorPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={refreshSnapshot}
+              className="rounded-full border border-[#6D3C52]/20 bg-[#FDF5F3] px-4 py-2 text-xs font-semibold text-[#2C0107] transition hover:border-[#C42759] dark:border-gray-700 dark:bg-[#1B0C1A] dark:text-[#FADCD5]"
+            >
+              ↻ Обновить данные БД
+            </button>
             <button
               type="button"
               onClick={() => setShowSql((v) => !v)}
