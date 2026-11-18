@@ -468,6 +468,37 @@ export default function LandlordPage() {
   const totalPropPages = Math.max(1, Math.ceil(filteredAndSortedProperties.length / LANDLORD_PAGE_SIZE));
   const safePropPage = Math.min(propPage, totalPropPages);
 
+  function handleExportReport() {
+    const headers = ['ID объекта', 'Название', 'Район', 'Комнат', 'Цена', 'Статус'];
+    const escapeCsvCell = (value: string | number) => {
+      const str = String(value ?? '').replace(/"/g, '""');
+      return /[;"\n\r]/.test(str) ? `"${str}"` : str;
+    };
+
+    const rows = filteredAndSortedProperties.map((p) =>
+      [
+        escapeCsvCell(p.id),
+        escapeCsvCell(p.title),
+        escapeCsvCell(p.address.district),
+        escapeCsvCell(p.rooms),
+        escapeCsvCell(p.monthlyPrice),
+        escapeCsvCell(p.status),
+      ].join(';'),
+    );
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const suffix = statusFilter === 'ALL' ? 'all' : statusFilter.toLowerCase();
+    link.href = url;
+    link.setAttribute('download', `velvet-residence-properties-${suffix}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <main className="flex flex-col">
       {/* Секция 1: Заголовок и входящие заявки */}
@@ -485,21 +516,12 @@ export default function LandlordPage() {
                 Управление резиденциями, геопозицией на карте, фотографиями и заявками арендаторов
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2.5">
-              <Link
-                href="/database"
-                title="Закрытый инспектор таблиц СУБД Oracle (по PIN-коду)"
-                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-[#6D3C52]/20 bg-[#2C0107] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#FADCD5] shadow-2xs transition-all duration-300 hover:bg-[#C42759] dark:border-[#FADCD5]/15 dark:bg-[#6D3C52] dark:text-[#FADCD5]"
-              >
-                <span>🔒 СУБД Oracle</span>
-              </Link>
-              <Link
-                href="/catalog"
-                className="inline-flex min-h-10 shrink-0 items-center rounded-full border border-[#6D3C52]/20 bg-white px-5 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#2C0107] shadow-2xs transition-all duration-300 hover:border-[#C42759] hover:text-[#C42759] dark:border-[#FADCD5]/15 dark:bg-[#2D222F] dark:text-[#FADCD5] dark:hover:bg-[#6D3C52]"
-              >
-                В каталог →
-              </Link>
-            </div>
+            <Link
+              href="/catalog"
+              className="inline-flex min-h-10 shrink-0 items-center rounded-full border border-[#6D3C52]/20 bg-white px-5 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#2C0107] shadow-2xs transition-all duration-300 hover:border-[#C42759] hover:text-[#C42759] dark:border-[#FADCD5]/15 dark:bg-[#2D222F] dark:text-[#FADCD5] dark:hover:bg-[#6D3C52]"
+            >
+              В каталог →
+            </Link>
           </header>
 
           {notice && (
@@ -896,13 +918,31 @@ export default function LandlordPage() {
                   Мои <span className="italic text-[#C42759] dark:text-[#dcbab3]">объекты</span> (
                   {filteredAndSortedProperties.length})
                 </h2>
-                {filteredAndSortedProperties.length > LANDLORD_PAGE_SIZE && (
-                  <span className="shrink-0 rounded-full bg-[#FADCD5]/60 px-3 py-1 text-xs font-medium text-[#550416] dark:bg-[#1B0C1A] dark:text-[#FADCD5]">
-                    Показано {(safePropPage - 1) * LANDLORD_PAGE_SIZE + 1}–
-                    {Math.min(safePropPage * LANDLORD_PAGE_SIZE, filteredAndSortedProperties.length)} из{' '}
-                    {filteredAndSortedProperties.length}
-                  </span>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {filteredAndSortedProperties.length > LANDLORD_PAGE_SIZE && (
+                    <span className="shrink-0 rounded-full bg-[#FADCD5]/60 px-3 py-1 text-xs font-medium text-[#550416] dark:bg-[#1B0C1A] dark:text-[#FADCD5]">
+                      Показано {(safePropPage - 1) * LANDLORD_PAGE_SIZE + 1}–
+                      {Math.min(safePropPage * LANDLORD_PAGE_SIZE, filteredAndSortedProperties.length)} из{' '}
+                      {filteredAndSortedProperties.length}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleExportReport}
+                    disabled={filteredAndSortedProperties.length === 0}
+                    data-testid="export-csv-btn"
+                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#6D3C52]/20 bg-[#FDF5F3] px-3.5 text-xs font-semibold text-[#2C0107] shadow-2xs transition-all duration-200 hover:border-[#C42759] hover:bg-[#C42759] hover:text-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#FADCD5]/15 dark:bg-[#1B0C1A] dark:text-[#FADCD5] dark:hover:bg-[#6D3C52]"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+                      />
+                    </svg>
+                    <span>Выгрузить отчет</span>
+                  </button>
+                </div>
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">

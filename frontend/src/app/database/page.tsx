@@ -126,6 +126,7 @@ export default function DatabaseInspectorPage() {
   const [pinError, setPinError] = useState(false);
   const [activeTable, setActiveTable] = useState<TableName>('PROPERTIES');
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'RENTED'>('ALL');
   const [showSql, setShowSql] = useState(true);
   const [liveProps, setLiveProps] = useState<Property[]>([]);
 
@@ -157,11 +158,63 @@ export default function DatabaseInspectorPage() {
 
   const filteredRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return rawRows;
-    return rawRows.filter((row) =>
-      Object.values(row).some((val) => String(val).toLowerCase().includes(q)),
-    );
-  }, [rawRows, searchQuery]);
+    return rawRows.filter((row) => {
+      if (activeTable === 'PROPERTIES' && statusFilter !== 'ALL') {
+        if (String(row.STATUS) !== statusFilter) return false;
+      }
+      if (!q) return true;
+      return Object.values(row).some((val) => String(val).toLowerCase().includes(q));
+    });
+  }, [rawRows, searchQuery, activeTable, statusFilter]);
+
+  function handleExportTableCsv() {
+    const escapeCell = (val: unknown) => {
+      const s = String(val ?? '').replace(/"/g, '""');
+      return /[;"\n\r]/.test(s) ? `"${s}"` : s;
+    };
+
+    if (activeTable === 'PROPERTIES') {
+      const addrMap = new Map<number, any>(
+        ((snapshot as any).ADDRESSES ?? []).map((a: any) => [Number(a.ADDRESS_ID), a]),
+      );
+      const headers = ['ID объекта', 'Название', 'Район', 'Комнат', 'Цена', 'Статус'];
+      const lines = filteredRows.map((r) => {
+        const addr = addrMap.get(Number(r.ADDRESS_ID));
+        return [
+          escapeCell(r.PROPERTY_ID),
+          escapeCell(r.TITLE),
+          escapeCell(addr?.DISTRICT ?? '—'),
+          escapeCell(r.ROOMS),
+          escapeCell(r.MONTHLY_PRICE),
+          escapeCell(r.STATUS),
+        ].join(';');
+      });
+      const csv = '\uFEFF' + [headers.join(';'), ...lines].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `oracle-properties-${statusFilter.toLowerCase()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    const cols = rawRows.length > 0 ? Object.keys(rawRows[0]) : [];
+    const lines = filteredRows.map((r) => cols.map((c) => escapeCell(r[c])).join(';'));
+    const csv = '\uFEFF' + [cols.join(';'), ...lines].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `oracle-${activeTable.toLowerCase()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   const columns = useMemo(() => {
     if (rawRows.length === 0) return [];
@@ -355,13 +408,42 @@ export default function DatabaseInspectorPage() {
             <span className="text-xs font-medium text-[#845962] dark:text-[#B08D87]">
               Показано записей: <b>{filteredRows.length}</b> из {rawRows.length}
             </span>
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={`Фильтр по полям ${activeTable}...`}
-              className="h-9 w-full rounded-full border border-[#6D3C52]/15 bg-[#FDF5F3] px-4 text-xs text-[#2C0107] focus:border-[#C42759] focus:outline-none sm:w-72 dark:border-gray-700 dark:bg-[#1B0C1A] dark:text-[#FADCD5]"
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              {activeTable === 'PROPERTIES' && (
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  aria-label="Фильтр по статусу"
+                  className="h-9 rounded-full border border-[#6D3C52]/15 bg-[#FDF5F3] px-3.5 text-xs font-semibold text-[#2C0107] focus:border-[#C42759] focus:outline-none dark:border-gray-700 dark:bg-[#1B0C1A] dark:text-[#FADCD5]"
+                >
+                  <option value="ALL">Все статусы</option>
+                  <option value="AVAILABLE">AVAILABLE (Свободно)</option>
+                  <option value="RENTED">RENTED (Сдано)</option>
+                </select>
+              )}
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={`Фильтр по полям ${activeTable}...`}
+                className="h-9 w-full rounded-full border border-[#6D3C52]/15 bg-[#FDF5F3] px-4 text-xs text-[#2C0107] focus:border-[#C42759] focus:outline-none sm:w-64 dark:border-gray-700 dark:bg-[#1B0C1A] dark:text-[#FADCD5]"
+              />
+              <button
+                type="button"
+                onClick={handleExportTableCsv}
+                disabled={filteredRows.length === 0}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-[#C42759] px-4 text-xs font-semibold text-white transition hover:bg-[#a61d48] disabled:opacity-40 dark:bg-[#6D3C52] dark:text-[#FADCD5]"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+                  />
+                </svg>
+                <span>Выгрузить отчет</span>
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">

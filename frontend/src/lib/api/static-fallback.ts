@@ -351,12 +351,70 @@ const SEED_PROPERTIES: Property[] = [
     },
     createdAt: '2026-11-03T16:00:00Z',
   },
+  {
+    id: 13,
+    ownerId: 1,
+    title: 'Резиденция с камином и террасой на пр. Ауэзова',
+    description: 'Дизайнерский ремонт, панорамное остекление, сдана по долгосрочному договору.',
+    rooms: 3,
+    area: 88,
+    monthlyPrice: 290000,
+    petsAllowed: false,
+    noDeposit: false,
+    fromOwner: true,
+    image_url: FALLBACK_UNSPLASH_URLS[12],
+    latitude: 49.9462,
+    longitude: 82.6178,
+    districtAvgPrice: 215000,
+    is_good_price: false,
+    status: 'RENTED',
+    type: { id: 3, name: 'Апартаменты' },
+    address: {
+      city: 'Усть-Каменогорск',
+      district: 'Октябрьский',
+      street: 'пр-т Ауэзова',
+      building: '28',
+      apartment: '44',
+      lat: 49.9462,
+      lng: 82.6178,
+    },
+    createdAt: '2026-10-15T11:00:00Z',
+  },
+  {
+    id: 14,
+    ownerId: 1,
+    title: 'Светлая 2-комнатная квартира в ЖК Ертіс Сити',
+    description: 'Сдана корпоративному арендатору на 12 месяцев, закрытый паркинг.',
+    rooms: 2,
+    area: 62,
+    monthlyPrice: 220000,
+    petsAllowed: true,
+    noDeposit: false,
+    fromOwner: true,
+    image_url: FALLBACK_UNSPLASH_URLS[13],
+    latitude: 49.9312,
+    longitude: 82.6421,
+    districtAvgPrice: 192000,
+    is_good_price: false,
+    status: 'RENTED',
+    type: { id: 1, name: 'Квартира' },
+    address: {
+      city: 'Усть-Каменогорск',
+      district: 'КШТ',
+      street: 'пр-т Сатпаева',
+      building: '64',
+      apartment: '91',
+      lat: 49.9312,
+      lng: 82.6421,
+    },
+    createdAt: '2026-10-18T14:30:00Z',
+  },
 ];
 
 function getStoredProps(): Property[] {
   if (typeof window === 'undefined') return SEED_PROPERTIES;
   try {
-    const raw = localStorage.getItem('velvet_static_properties');
+    const raw = localStorage.getItem('velvet_static_properties_v2');
     if (raw) return JSON.parse(raw);
   } catch {}
   return SEED_PROPERTIES;
@@ -365,7 +423,7 @@ function getStoredProps(): Property[] {
 function saveStoredProps(props: Property[]) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem('velvet_static_properties', JSON.stringify(props));
+    localStorage.setItem('velvet_static_properties_v2', JSON.stringify(props));
   } catch {}
 }
 
