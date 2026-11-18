@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from './api/client';
+import { getApiBaseUrl, isAutonomousDemoMode } from './api/client';
 
 export interface SessionUser {
   id: number;
@@ -47,6 +47,7 @@ export function clearSession(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(LEGACY_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  if (isAutonomousDemoMode()) return;
   fetch(`${getApiBaseUrl()}/auth/logout`, {
     method: 'POST',
     credentials: 'include',

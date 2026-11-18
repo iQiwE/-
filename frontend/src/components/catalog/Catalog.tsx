@@ -32,7 +32,7 @@ const MapComponent = dynamic(() => import('./MapComponent'), {
 export function Catalog() {
   const router = useRouter();
   const { filter, setFilter, resetFilter } = useCatalogFilters();
-  const { data, loading, error } = useProperties(filter);
+  const { data, loading, error, retry } = useProperties(filter);
   const [districts, setDistricts] = useState<string[]>([]);
   const [mapProperties, setMapProperties] = useState<Property[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
@@ -453,10 +453,24 @@ export function Catalog() {
 
               {error && (
                 <div
-                  className="rounded-2xl bg-[#FADCD5]/60 p-3 text-xs text-[#550416] dark:bg-[#4B2138]/60 dark:text-[#FADCD5]"
+                  className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-[#6D3C52]/15 bg-white/85 p-4 text-center shadow-xs sm:flex-row sm:text-left dark:border-gray-800 dark:bg-[#2D222F]/85"
                   role="alert"
                 >
-                  Не удалось загрузить каталог: {error}
+                  <div className="flex flex-col gap-0.5">
+                    <p className="font-serif text-base font-normal text-[#2C0107] dark:text-[#FADCD5]">
+                      Нет связи с сервером
+                    </p>
+                    <p className="text-xs text-[#845962] dark:text-[#B08D87]">
+                      {error}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={retry}
+                    className="shrink-0 rounded-full bg-[#C42759] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#a61d48] dark:bg-[#6D3C52] dark:text-[#FADCD5]"
+                  >
+                    Повторить попытку
+                  </button>
                 </div>
               )}
 

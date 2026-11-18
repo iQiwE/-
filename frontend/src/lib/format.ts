@@ -54,7 +54,7 @@ export function resolvePropertyImageUrl(imageUrl?: string | null, propertyId = 1
       }
       return fallback;
     }
-    const apiBase = configuredEnvUrl ?? 'http://localhost:4000/api/v1';
+    const apiBase = configuredEnvUrl || 'http://localhost:4000/api/v1';
     const serverOrigin = apiBase.replace(/\/api\/v1\/?$/, '');
     return `${serverOrigin}${trimmed}`;
   }

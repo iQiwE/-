@@ -1,5 +1,6 @@
 import { CatalogFilter, Paginated, Property } from '@/types/property';
-import { ApiError, apiGet, apiRequest, getApiBaseUrl } from './client';
+import { ApiError, apiGet, apiRequest, getApiBaseUrl, isAutonomousDemoMode } from './client';
+import { handleStaticFallbackGet, handleStaticFallbackMutation } from './static-fallback';
 
 export const PAGE_SIZE = 8;
 
@@ -22,6 +23,10 @@ export const propertiesApi = {
     apiRequest<void>('DELETE', `/favorites/${propertyId}`, undefined, token),
 
   uploadPropertyImage: async (propertyId: number, file: File, token: string): Promise<Property> => {
+    if (isAutonomousDemoMode()) {
+      return handleStaticFallbackGet<Property>(`/properties/${propertyId}`);
+    }
+
     const formData = new FormData();
     formData.append('file', file);
 
@@ -32,19 +37,24 @@ export const propertiesApi = {
       headers.Authorization = `Bearer ${token}`;
     }
 
-    const res = await fetch(`${getApiBaseUrl()}/properties/${propertyId}/image`, {
-      method: 'POST',
-      headers,
-      credentials: 'include',
-      body: formData,
-    });
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/properties/${propertyId}/image`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: formData,
+      });
 
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      const msg = Array.isArray(errBody.message) ? errBody.message.join(', ') : errBody.message;
-      throw new ApiError(res.status, msg ?? res.statusText);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        const msg = Array.isArray(errBody.message) ? errBody.message.join(', ') : errBody.message;
+        throw new ApiError(res.status, msg ?? res.statusText);
+      }
+
+      return res.json() as Promise<Property>;
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      return handleStaticFallbackMutation<Property>('PATCH', `/properties/${propertyId}`, {});
     }
-
-    return res.json() as Promise<Property>;
   },
 };
