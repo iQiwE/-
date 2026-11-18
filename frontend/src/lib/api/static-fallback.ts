@@ -427,6 +427,49 @@ function saveStoredProps(props: Property[]) {
   } catch {}
 }
 
+const SEED_APPLICATIONS = [
+  {
+    id: 1,
+    propertyId: 3,
+    propertyTitle: 'Уютная студия в районе КШТ',
+    tenantName: 'Анна Смирнова',
+    tenantPhone: '+7 (777) 245-18-90',
+    desiredStartDate: '2026-12-01',
+    leaseMonths: 12,
+    status: 'PENDING',
+    message: 'Готова внести оплату за первый месяц в день подписания договора.',
+    createdAt: '2026-11-15T11:20:00Z',
+  },
+  {
+    id: 2,
+    propertyId: 1,
+    propertyTitle: 'Видовая 2-комнатная квартира на пр. Назарбаева',
+    tenantName: 'Дамир Касымов',
+    tenantPhone: '+7 (701) 512-44-09',
+    desiredStartDate: '2026-11-25',
+    leaseMonths: 6,
+    status: 'APPROVED',
+    message: 'Командировка в Усть-Каменогорск на полгода, без животных.',
+    createdAt: '2026-11-10T14:05:00Z',
+  },
+];
+
+function getStoredApplications(): any[] {
+  if (typeof window === 'undefined') return SEED_APPLICATIONS;
+  try {
+    const raw = localStorage.getItem('velvet_static_applications');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return SEED_APPLICATIONS.map((a) => ({ ...a }));
+}
+
+function saveStoredApplications(apps: any[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('velvet_static_applications', JSON.stringify(apps));
+  } catch {}
+}
+
 export function handleStaticFallbackGet<T>(
   path: string,
   params: Record<string, string | number | boolean | undefined> = {},
@@ -448,36 +491,7 @@ export function handleStaticFallbackGet<T>(
     path === '/landlord/applications' ||
     path === '/tenant/applications'
   ) {
-    if (typeof window !== 'undefined') {
-      const raw = localStorage.getItem('velvet_static_applications');
-      if (raw) return JSON.parse(raw) as T;
-    }
-    return [
-      {
-        id: 1,
-        propertyId: 3,
-        propertyTitle: 'Уютная студия в районе КШТ',
-        tenantName: 'Анна Смирнова',
-        tenantPhone: '+7 (777) 245-18-90',
-        desiredStartDate: '2026-12-01',
-        leaseMonths: 12,
-        status: 'PENDING',
-        message: 'Готова внести оплату за первый месяц в день подписания договора.',
-        createdAt: '2026-11-15T11:20:00Z',
-      },
-      {
-        id: 2,
-        propertyId: 1,
-        propertyTitle: 'Видовая 2-комнатная квартира на пр. Назарбаева',
-        tenantName: 'Дамир Касымов',
-        tenantPhone: '+7 (701) 512-44-09',
-        desiredStartDate: '2026-11-25',
-        leaseMonths: 6,
-        status: 'APPROVED',
-        message: 'Командировка в Усть-Каменогорск на полгода, без животных.',
-        createdAt: '2026-11-10T14:05:00Z',
-      },
-    ] as unknown as T;
+    return getStoredApplications() as unknown as T;
   }
 
   if (path === '/contracts/my' || path === '/contracts') {
@@ -596,10 +610,10 @@ export function handleStaticFallbackMutation<T>(
     const propId = Number(appMatch[1]);
     const allProps = getStoredProps();
     const prop = allProps.find((p) => p.id === propId);
-    const raw = localStorage.getItem('velvet_static_applications');
-    const apps = raw ? JSON.parse(raw) : [];
+    const apps = getStoredApplications();
+    const nextAppId = Math.max(0, ...apps.map((a: any) => Number(a.id) || 0)) + 1;
     const created = {
-      id: apps.length + 1,
+      id: nextAppId,
       propertyId: propId,
       propertyTitle: prop?.title ?? `Объект #${propId}`,
       tenantName: 'Анна Смирнова (Арендатор)',
@@ -608,8 +622,106 @@ export function handleStaticFallbackMutation<T>(
       status: 'PENDING',
     };
     apps.unshift(created);
-    localStorage.setItem('velvet_static_applications', JSON.stringify(apps));
+    saveStoredApplications(apps);
     return created as unknown as T;
+  }
+
+  const approveMatch = path.match(/^\/applications\/(\d+)\/approve$/);
+  if (approveMatch && (method === 'PATCH' || method === 'PUT')) {
+    const appId = Number(approveMatch[1]);
+    const apps = getStoredApplications();
+    const targetApp = apps.find((a: any) => Number(a.id) === appId);
+    const propId = Number(targetApp?.propertyId ?? 3);
+    const leaseMonths = Number(targetApp?.leaseMonths ?? 12);
+
+    const updatedApps = apps.map((a: any) => {
+      if (Number(a.id) === appId) return { ...a, status: 'APPROVED' };
+      if (Number(a.propertyId) === propId && a.status === 'PENDING') {
+        return { ...a, status: 'REJECTED' };
+      }
+      return a;
+    });
+    saveStoredApplications(updatedApps);
+
+    const allProps = getStoredProps();
+    const updatedProps = allProps.map((p) =>
+      Number(p.id) === propId ? { ...p, status: 'RENTED' as const } : p,
+    );
+    saveStoredProps(updatedProps);
+
+    return {
+      applicationId: appId,
+      propertyId: propId,
+      contractId: 100 + appId,
+      paymentsCreated: leaseMonths,
+    } as unknown as T;
+  }
+
+  const rejectMatch = path.match(/^\/applications\/(\d+)\/reject$/);
+  if (rejectMatch && (method === 'PATCH' || method === 'PUT')) {
+    const appId = Number(rejectMatch[1]);
+    const apps = getStoredApplications().map((a: any) =>
+      Number(a.id) === appId ? { ...a, status: 'REJECTED' } : a,
+    );
+    saveStoredApplications(apps);
+    return undefined as unknown as T;
+  }
+
+  const deactivateMatch = path.match(/^\/properties\/(\d+)\/deactivate$/);
+  if (deactivateMatch && method === 'PATCH') {
+    const propId = Number(deactivateMatch[1]);
+    const updated = getStoredProps().map((p) =>
+      Number(p.id) === propId ? { ...p, status: 'INACTIVE' as const } : p,
+    );
+    saveStoredProps(updated);
+    return updated.find((p) => Number(p.id) === propId) as unknown as T;
+  }
+
+  const activateMatch = path.match(/^\/properties\/(\d+)\/activate$/);
+  if (activateMatch && method === 'PATCH') {
+    const propId = Number(activateMatch[1]);
+    const updated = getStoredProps().map((p) =>
+      Number(p.id) === propId ? { ...p, status: 'AVAILABLE' as const } : p,
+    );
+    saveStoredProps(updated);
+    return updated.find((p) => Number(p.id) === propId) as unknown as T;
+  }
+
+  const propIdMatch = path.match(/^\/properties\/(\d+)$/);
+  if (propIdMatch && method === 'DELETE') {
+    const propId = Number(propIdMatch[1]);
+    const updated = getStoredProps().filter((p) => Number(p.id) !== propId);
+    saveStoredProps(updated);
+    return undefined as unknown as T;
+  }
+
+  if (propIdMatch && (method === 'PUT' || method === 'PATCH')) {
+    const propId = Number(propIdMatch[1]);
+    const updated = getStoredProps().map((p) => {
+      if (Number(p.id) !== propId) return p;
+      return {
+        ...p,
+        title: body?.title ?? p.title,
+        rooms: body?.rooms !== undefined ? Number(body.rooms) : p.rooms,
+        area: body?.area !== undefined ? Number(body.area) : p.area,
+        monthlyPrice: body?.monthlyPrice !== undefined ? Number(body.monthlyPrice) : p.monthlyPrice,
+        petsAllowed: body?.petsAllowed !== undefined ? Boolean(body.petsAllowed) : p.petsAllowed,
+        noDeposit: body?.noDeposit !== undefined ? Boolean(body.noDeposit) : p.noDeposit,
+        fromOwner: body?.fromOwner !== undefined ? Boolean(body.fromOwner) : p.fromOwner,
+        latitude: body?.latitude !== undefined ? Number(body.latitude) : p.latitude,
+        longitude: body?.longitude !== undefined ? Number(body.longitude) : p.longitude,
+        address: body?.address
+          ? {
+              ...p.address,
+              ...body.address,
+              lat: body?.latitude !== undefined ? Number(body.latitude) : p.address.lat,
+              lng: body?.longitude !== undefined ? Number(body.longitude) : p.address.lng,
+            }
+          : p.address,
+      };
+    });
+    saveStoredProps(updated);
+    return updated.find((p) => Number(p.id) === propId) as unknown as T;
   }
 
   if (path === '/properties' && method === 'POST') {

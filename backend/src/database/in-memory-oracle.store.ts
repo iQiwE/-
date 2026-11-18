@@ -953,9 +953,14 @@ export class InMemoryOracleStore {
         }
       }
       result = { rowsAffected: count };
-    } else if (norm.startsWith('UPDATE PROPERTIES SET STATUS = :STATUS')) {
-      const prop = this.state.properties.find((p) => p.PROPERTY_ID === Number(binds.id));
-      if (prop) prop.STATUS = binds.status;
+    } else if (
+      norm.startsWith('UPDATE PROPERTIES SET STATUS = :STATUS') ||
+      norm.startsWith("UPDATE PROPERTIES SET STATUS = 'RENTED'")
+    ) {
+      const targetId = Number(binds.property_id ?? binds.propertyId ?? binds.id);
+      const nextStatus = binds.status ?? 'RENTED';
+      const prop = this.state.properties.find((p) => Number(p.PROPERTY_ID) === targetId);
+      if (prop) prop.STATUS = nextStatus;
       result = { rowsAffected: prop ? 1 : 0 };
     } else if (norm.startsWith('UPDATE PROPERTIES SET IMAGE_URL = :IMAGEURL')) {
       const prop = this.state.properties.find((p) => p.PROPERTY_ID === Number(binds.id)) as any;

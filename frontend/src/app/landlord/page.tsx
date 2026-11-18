@@ -365,14 +365,35 @@ export default function LandlordPage() {
   async function handleApprove(id: number) {
     if (!token) return;
     setError(null);
+    const targetApp = applications.find((a) => a.id === id);
     try {
-      const res = await apiRequest<{ contractId: number; paymentsCreated: number }>(
+      const res = await apiRequest<{ propertyId?: number; contractId: number; paymentsCreated: number }>(
         'PATCH',
         `/applications/${id}/approve`,
         undefined,
         token,
       );
-      setNotice(`Заявка #${id} одобрена. Создан договор #${res.contractId} и платежей: ${res.paymentsCreated}.`);
+      const approvedPropId = res?.propertyId ?? targetApp?.propertyId;
+
+      setApplications((prev) =>
+        prev.map((app) => {
+          if (app.id === id) return { ...app, status: 'APPROVED' };
+          if (approvedPropId && app.propertyId === approvedPropId && app.status === 'PENDING') {
+            return { ...app, status: 'REJECTED' };
+          }
+          return app;
+        }),
+      );
+
+      if (approvedPropId) {
+        setProperties((prev) =>
+          prev.map((prop) => (prop.id === approvedPropId ? { ...prop, status: 'RENTED' } : prop)),
+        );
+      }
+
+      setNotice(
+        `Заявка #${id} одобрена. Статус квартиры изменён на RENTED (Сдано). Создан договор #${res.contractId} и платежей: ${res.paymentsCreated}.`,
+      );
       await loadData(token);
     } catch (e: any) {
       const msg = sanitizeUserErrorMessage(e?.message, 'Не удалось одобрить заявку');
@@ -386,6 +407,7 @@ export default function LandlordPage() {
     setError(null);
     try {
       await apiRequest('PATCH', `/applications/${id}/reject`, undefined, token);
+      setApplications((prev) => prev.map((app) => (app.id === id ? { ...app, status: 'REJECTED' } : app)));
       setNotice(`Заявка #${id} отклонена.`);
       await loadData(token);
     } catch (e: any) {
@@ -400,6 +422,7 @@ export default function LandlordPage() {
     setError(null);
     try {
       await apiRequest('PATCH', `/properties/${id}/deactivate`, undefined, token);
+      setProperties((prev) => prev.map((prop) => (prop.id === id ? { ...prop, status: 'INACTIVE' } : prop)));
       setNotice(`Объект #${id} снят с публикации (статус INACTIVE).`);
       await loadData(token);
     } catch (e: any) {
@@ -443,6 +466,7 @@ export default function LandlordPage() {
     setError(null);
     try {
       await apiRequest('PATCH', `/properties/${id}/activate`, undefined, token);
+      setProperties((prev) => prev.map((prop) => (prop.id === id ? { ...prop, status: 'AVAILABLE' } : prop)));
       setNotice(`Объект #${id} возвращён в публикацию (статус AVAILABLE).`);
       await loadData(token);
     } catch (e: any) {

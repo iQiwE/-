@@ -113,6 +113,7 @@ export async function apiGet<T>(
       signal,
       headers,
       credentials: 'include',
+      cache: 'no-store',
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));

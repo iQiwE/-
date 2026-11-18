@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { IsIn, IsOptional } from 'class-validator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -55,10 +55,23 @@ export class ApplicationsController {
     return this.service.approve(id, user.id);
   }
 
+  @Put('applications/:id/approve')
+  @Roles('LANDLORD')
+  approvePut(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
+    return this.service.approve(id, user.id);
+  }
+
   @Patch('applications/:id/reject')
   @HttpCode(204)
   @Roles('LANDLORD')
   reject(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
+    return this.service.reject(id, user.id);
+  }
+
+  @Put('applications/:id/reject')
+  @HttpCode(204)
+  @Roles('LANDLORD')
+  rejectPut(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
     return this.service.reject(id, user.id);
   }
 }

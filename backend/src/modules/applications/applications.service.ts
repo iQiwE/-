@@ -18,6 +18,7 @@ import { CreateApplicationDto } from './dto/create-application.dto';
 
 export interface ApprovalResult {
   applicationId: number;
+  propertyId: number;
   contractId: number;
   paymentsCreated: number;
 }
@@ -83,7 +84,11 @@ export class ApplicationsService {
 
       await this.applications.updateStatus(application.id, 'APPROVED', tx);
       await this.applications.rejectOtherPending(property.id, application.id, tx);
-      await this.properties.updateStatus(property.id, 'RENTED', tx);
+      await this.db.execute(
+        `UPDATE PROPERTIES SET status = 'RENTED' WHERE property_id = :property_id`,
+        { property_id: property.id },
+        tx,
+      );
 
       const startDate = new Date(application.desiredStartDate);
       const contractId = await this.contracts.create(
@@ -102,7 +107,12 @@ export class ApplicationsService {
       const schedule = this.schedule.generateMonthly(startDate, application.leaseMonths, property.monthlyPrice);
       await this.payments.createMany(contractId, schedule, tx);
 
-      return { applicationId: application.id, contractId, paymentsCreated: schedule.length };
+      return {
+        applicationId: application.id,
+        propertyId: property.id,
+        contractId,
+        paymentsCreated: schedule.length,
+      };
     });
   }
 
