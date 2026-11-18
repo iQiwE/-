@@ -122,10 +122,17 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-[#B08D87] sm:flex-row dark:border-gray-800">
-          <p>© {new Date().getFullYear()} Velvet Residence · ИС Аренды Жилья (РК, ВКО). Все права защищены.</p>
-          <p className="text-[11px] uppercase tracking-wider">
-            Безопасные сделки · Проверенные собственники · Аналитика цен
+        <div className="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 text-xs text-[#B08D87] dark:border-gray-800">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+            <p>© {new Date().getFullYear()} Velvet Residence · ИС Аренды Жилья (РК, ВКО). Все права защищены.</p>
+            <p className="text-[11px] uppercase tracking-wider">
+              Безопасные сделки · Проверенные собственники · Аналитика цен
+            </p>
+          </div>
+          <p className="text-center text-[11px] leading-relaxed text-[#B08D87]/80 sm:text-left">
+            Дисклеймер: все представленные на платформе объекты недвижимости, адреса, цены, контакты, персональные данные
+            пользователей и договоры являются полностью вымышленными и используются исключительно в демонстрационных
+            целях. Любые совпадения случайны. Материалы сайта не являются публичной офертой.
           </p>
         </div>
       </div>

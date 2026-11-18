@@ -144,5 +144,6 @@ npm run start
 ---
 
 <div align="center">
-  <sub><b>Velvet Residence PropTech Platform</b> · Enterprise Real Estate Management System · © 2026</sub>
+  <sub><b>Velvet Residence PropTech Platform</b> · Enterprise Real Estate Management System · © 2026</sub><br/>
+  <sub><i>Дисклеймер: все представленные объекты недвижимости, адреса, цены, контакты и профили пользователей являются вымышленными (демонстрационными) данными и не являются публичной офертой.</i></sub>
 </div>
